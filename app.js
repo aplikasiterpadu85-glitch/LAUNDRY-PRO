@@ -2,37 +2,22 @@ const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzF_dBpgprj07HLb9eU
 
 const safeStorage = {
   _memory: {},
-  getItem(key) {
-    try { return localStorage.getItem(key); }
-    catch (e) { return this._memory[key] || null; }
-  },
-  setItem(key, val) {
-    try { localStorage.setItem(key, val); }
-    catch (e) { this._memory[key] = String(val); }
-  },
-  removeItem(key) {
-    try { localStorage.removeItem(key); }
-    catch (e) { delete this._memory[key]; }
-  }
+  getItem(key) { try { return localStorage.getItem(key); } catch (e) { return this._memory[key] || null; } },
+  setItem(key, val) { try { localStorage.setItem(key, val); } catch (e) { this._memory[key] = String(val); } },
+  removeItem(key) { try { localStorage.removeItem(key); } catch (e) { delete this._memory[key]; } }
 };
 
 function getSafeData(key, defaultData) {
   try {
     let data = JSON.parse(safeStorage.getItem(key));
     return data !== null ? data : defaultData;
-  } catch (e) {
-    return defaultData;
-  }
+  } catch (e) { return defaultData; }
 }
 
 let servicePrices = getSafeData("arsyServices", {
   "Cuci Kering": { price: 5000, unit: "kg", processes: ["Cuci", "Pengeringan", "Lipat"], duration: "3 Hari", minQty: 1, pinned: true },
   "Cuci Setrika": { price: 10000, unit: "kg", processes: ["Cuci"], duration: "1 Hari", minQty: 1, pinned: true },
-  "Bed Cover": { price: 25000, unit: "pcs", processes: ["Cuci"], duration: "1 Hari", minQty: 1, pinned: false },
-  "sepatu": { price: 25000, unit: "set", processes: ["Cuci"], duration: "1 Hari", minQty: 1, pinned: false },
-  "karpet": { price: 40000, unit: "m²", processes: ["Cuci"], duration: "1 Hari", minQty: 1, pinned: false },
-  "sofa": { price: 50000, unit: "pcs", processes: ["Cuci"], duration: "7 Hari", minQty: 1, pinned: false },
-  "Setrika express": { price: 6000, unit: "kg", processes: ["Setrika"], duration: "4 Jam", minQty: 1, pinned: false }
+  "Bed Cover": { price: 25000, unit: "pcs", processes: ["Cuci"], duration: "1 Hari", minQty: 1, pinned: false }
 });
 
 let transactions = getSafeData("arsyTransactions", []);
@@ -314,7 +299,7 @@ function openDashboardDetail(type) {
     filtered = transactions.filter(item => {
       if (item.status === "Batal") return false;
       const st = item.status ? item.status.toLowerCase().trim() : '';
-      return st === "antrian" || st === "pending" || st === "proses" || st === "diproses" || st === "siap diambil" || st === "diambil";
+      return st === "antrian" || st === "proses" || st === "siap diambil";
     });
     summaryHTML = `<div style="background: white; padding: 15px; border-radius: 13px; border: 1px solid var(--border); margin-bottom: 16px;"><p style="font-size: 12px; color: var(--muted); font-weight: bold;">BELUM SELESAI</p><b style="font-size: 18px; color: var(--primary);">${filtered.length} Transaksi</b></div>`;
   }
@@ -335,8 +320,8 @@ function setupDashboardInteractions() {
     const card = el.parentElement.parentElement.children.length <= 3 ? el.parentElement.parentElement : el.parentElement;
     if (card) { card.style.cursor = 'pointer'; card.onclick = (e) => { e.stopPropagation(); handler(); }; }
   });
-  }
-function getSortedServiceNames() {
+}
+  function getSortedServiceNames() {
   return Object.keys(servicePrices).sort((a, b) => {
     let pinA = servicePrices[a].pinned ? 1 : 0;
     let pinB = servicePrices[b].pinned ? 1 : 0;
@@ -567,7 +552,7 @@ function openTransactionModal() {
 }
 
 function closeTransactionModal() { const modal = document.getElementById("transactionModal"); if (modal) modal.classList.remove("show"); }
-function transactionHTML(item) {
+      function transactionHTML(item) {
   const statusClass = item.status ? item.status.toLowerCase().replace(/\s+/g, '-') : 'pending';
   const paymentStatus = item.paymentStatus || 'Belum Lunas';
   const isLunas = paymentStatus === 'Lunas';
@@ -619,7 +604,9 @@ function getTransactionItems(item) {
 function openTransactionDetail(id) {
   activeTransactionId = id;
   const item = transactions.find(t => t.id === id); if (!item) return;
-  const container = document.getElementById("detailContent");
+  const container = document.getElementById("detailContent") || document.getElementById("transactionDetailPage");
+  if (!container) return;
+
   const isLunas = item.paymentStatus === "Lunas";
   const isDP = item.paymentStatus === "DP";
   const isBatal = item.status === "Batal";
@@ -633,32 +620,46 @@ function openTransactionDetail(id) {
     return `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border);">
         <div><strong>${escapeHTML(it.serviceType)}</strong><p style="font-size: 12px; color: var(--muted);">${it.weight} ${srv.unit} x ${formatRupiah(unitPrice)} : <b>${formatRupiah(it.total)}</b></p></div>
-        <button type="button" onclick="deleteTransactionItem(${item.id}, ${idx})" style="background: #fee2e2; color: #dc2626; border: none; width: 32px; height: 32px; border-radius: 6px; cursor: pointer;">✕</button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" onclick="openEditTransactionItem(${item.id}, ${idx})" style="background: #e1edff; color: var(--primary); border: none; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✏️</button>
+          <button type="button" onclick="deleteTransactionItem(${item.id}, ${idx})" style="background: #fee2e2; color: #dc2626; border: none; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
+        </div>
       </div>
     `;
   }).join("");
 
   container.innerHTML = `
-    <div class="report-card" style="margin-bottom: 16px;">
-      <p><b>No. Transaksi:</b> TRX/${item.id}</p>
-      <p><b>Status:</b> <span class="report-status ${item.status.toLowerCase().replace(/\s+/g, '-')}">${item.status}</span></p>
-      <p><b>Kasir:</b> ${currentUserRole === 'admin' ? 'Admin' : 'Kasir'}</p>
+    <div style="padding: 15px; background: white; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+      <button onclick="showPage('transactionsPage')" style="background:none; border:none; font-size:18px; cursor:pointer;">‹</button>
+      <h2 style="font-size: 16px; font-weight: bold; color: var(--text);">Detail Transaksi</h2>
     </div>
-    <div class="report-card" style="margin-bottom: 16px;">
-      <p class="report-label">PELANGGAN</p><strong style="font-size: 16px; color: var(--primary);">${escapeHTML(item.customerName)}</strong>
+    <div style="padding: 15px; background: #f4f7fb; min-height: 100vh;">
+      <div style="background:white; padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid var(--border);">
+        <p><b>No. Transaksi:</b> TRX/${item.id}</p>
+        <p><b>Status:</b> <span class="report-status ${item.status.toLowerCase().replace(/\s+/g, '-')}">${item.status}</span></p>
+        <p><b>Kasir:</b> ${currentUserRole === 'admin' ? 'Admin' : 'Kasir'}</p>
+        <p><b>Waktu:</b> ${formatDate(item.date)}</p>
+      </div>
+      <div style="background:white; padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid var(--border);">
+        <p style="font-size:11px; color:var(--muted); font-weight:bold;">PELANGGAN</p>
+        <strong style="font-size: 16px; color: var(--primary);">${escapeHTML(item.customerName)}</strong>
+      </div>
+      <div style="background:white; padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid var(--border);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <p style="font-size:11px; color:var(--muted); font-weight:bold; margin:0;">LAYANAN</p>
+          <button type="button" onclick="openAddServiceToExistingTransactionModal(${item.id})" style="background: #e1edff; color: var(--primary); border: none; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer;">+ Tambah Layanan</button>
+        </div>
+        ${itemsHTML}
+      </div>
+      <button type="button" class="submit-button" style="margin-bottom: 12px; background: #1769e0; width:100%; padding:12px; border-radius:8px; color:white; font-weight:bold; border:none; ${hideNextButton}" onclick="proceedNextStatus(${item.id})">Proses Status Selanjutnya</button>
+      <div style="background:white; padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid var(--border);">
+        <p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:8px;">PEMBAYARAN</p>
+        <div style="display: flex; justify-content: space-between; margin: 6px 0;"><span>Total</span><b>${formatRupiah(item.total)}</b></div>
+        <div style="display: flex; justify-content: space-between; margin: 6px 0;"><span>Status</span><span>${item.paymentStatus || 'Belum Lunas'}</span></div>
+      </div>
+      <button type="button" class="submit-button" style="background: #16a34a; margin-bottom: 12px; width:100%; padding:12px; border-radius:8px; color:white; font-weight:bold; border:none;" onclick="openPaymentModal(${item.id})">Bayar</button>
+      <button type="button" class="submit-button" style="background: #25d366; color: white; width: 100%; font-weight: bold; padding:12px; border-radius:8px; border:none;" onclick="sendWhatsAppReceipt(${item.id})">Kirim Nota WhatsApp</button>
     </div>
-    <div class="report-card" style="margin-bottom: 16px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><p class="report-label" style="margin: 0;">LAYANAN</p></div>
-      ${itemsHTML}
-    </div>
-    <button type="button" class="submit-button" style="margin-bottom: 12px; background: #1769e0; ${hideNextButton}" onclick="proceedNextStatus(${item.id})">Proses Status Selanjutnya</button>
-    <div class="report-card" style="margin-bottom: 16px;">
-      <p class="report-label">PEMBAYARAN</p>
-      <div style="display: flex; justify-content: space-between; margin: 6px 0;"><span>Total</span><b>${formatRupiah(item.total)}</b></div>
-      <div style="display: flex; justify-content: space-between; margin: 6px 0;"><span>Status</span><span>${item.paymentStatus || 'Belum Lunas'}</span></div>
-    </div>
-    <button type="button" class="submit-button" style="background: #16a34a; margin-bottom: 12px;" onclick="openPaymentModal(${item.id})">Bayar</button>
-    <button type="button" class="submit-button" style="background: #25d366; color: white; width: 100%; font-weight: bold;" onclick="sendWhatsAppReceipt(${item.id})">Kirim Nota WhatsApp</button>
   `;
   showPage("transactionDetailPage");
 }
@@ -676,23 +677,32 @@ function deleteTransactionItem(txId, itemIdx) {
   const tx = transactions.find(t => t.id === txId); if (!tx) return;
   const items = getTransactionItems(tx);
   if (items.length <= 1) { showToast("Minimal harus ada 1 layanan"); return; }
-  if (confirm("Hapus layanan ini?")) {
+  if (confirm("Hapus layanan ini dari transaksi?")) {
     items.splice(itemIdx, 1); tx.total = items.reduce((s, i) => s + i.total, 0);
     saveData(); renderAll(); openTransactionDetail(txId); showToast("Layanan dihapus");
   }
 }
 
-function generateWhatsAppReceiptText(item) {
-  let text = `*${arsyOutlet.name}*\n${arsyOutlet.address}\n\n*Pelanggan: ${item.customerName}*\nNo: TRX/${item.id}\nWaktu: ${formatDate(item.date)}\n--------------------------------\n`;
-  getTransactionItems(item).forEach(it => { text += `${it.serviceType} (${it.weight}) : ${formatRupiah(it.total)}\n`; });
-  text += `--------------------------------\n*Total: ${formatRupiah(item.total)}*\nStatus: ${item.paymentStatus}\n\n_Terima Kasih_`;
-  return text;
+function openAddServiceToExistingTransactionModal(txId) {
+  activeTransactionId = txId;
+  const modal = document.getElementById("addServiceSelectModal");
+  const input = document.getElementById("serviceSearchInputModal");
+  if(input) input.value = "";
+  modal.dataset.target = "existing";
+  filterServiceSelectionList();
+  modal.classList.add("show");
 }
 
-function sendWhatsAppReceipt(id) {
-  const item = transactions.find(t => t.id === id); if (!item) return;
-  window.open(`intent://send?text=${encodeURIComponent(generateWhatsAppReceiptText(item))}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;end`, '_top');
-      }
+function addServiceToExistingTransactionConfirm(serviceName) {
+  const tx = transactions.find(t => t.id === activeTransactionId);
+  if (!tx) return;
+  const srv = servicePrices[serviceName];
+  if (!srv) return;
+  const items = getTransactionItems(tx);
+  items.push({ serviceType: serviceName, weight: srv.minQty || 1, total: (srv.minQty || 1) * srv.price });
+  tx.total = items.reduce((sum, item) => sum + item.total, 0);
+  closeAddServiceSelectModal(); saveData(); renderAll(); openTransactionDetail(activeTransactionId); showToast("Layanan ditambahkan");
+}
 function injectPaymentModalHTML() {
   let modalEl = document.getElementById("paymentModal");
   if (!modalEl) { modalEl = document.createElement("div"); modalEl.id = "paymentModal"; modalEl.className = "modal"; document.body.appendChild(modalEl); }
@@ -821,7 +831,7 @@ function hitungKeuanganLengkap() {
   
   const tbody = document.getElementById("tabelPengeluaranBody");
   if(tbody) {
-    tbody.innerHTML = expensesData.sort((a,b) => new Date(b.date) - new Date(a.date)).map(e => `
+    tbody.innerHTML = expensesData.sort((a,b) => new Date(b.date) - new Date(b.date)).map(e => `
       <tr><td style="padding:12px; border-bottom:1px solid var(--border);"><strong>${e.category}</strong><br><small>${formatDate(e.date).split(' ')[0]} - ${escapeHTML(e.desc)}</small></td><td style="padding:12px; border-bottom:1px solid var(--border); text-align:right;"><strong style="color:#dc2626;">${formatRupiah(e.amount)}</strong><br><button onclick="hapusPengeluaran(${e.id})" style="background:none; border:none; color:var(--muted); font-size:11px; cursor:pointer;">Hapus</button></td></tr>
     `).join("");
   }
@@ -856,7 +866,7 @@ function showPage(pageId) {
   document.querySelectorAll(".page").forEach(page => page.classList.remove("active"));
   const target = document.getElementById(pageId); if (target) target.classList.add("active");
   document.querySelectorAll(".nav-button[data-page]").forEach(button => {
-    button.classList.remove("active"); if (button.dataset.page === pageId) button.classList.add("active");
+    button.buttonClass?.remove("active"); if (button.dataset.page === pageId) button.classList.add("active");
   });
   window.scrollTo(0, 0);
   if (pageId === 'keuanganPage') hitungKeuanganLengkap();
@@ -892,4 +902,4 @@ document.addEventListener("DOMContentLoaded", function () {
     applyRoleRestrictions();
   }, 500);
 });
-                                                       
+    
