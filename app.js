@@ -273,13 +273,92 @@ function injectTransactionModalHTML() {
 function openTransactionModal() { activeNewTransactionItems = []; renderTrxItems(); document.getElementById("transactionModalFull").classList.add("show"); }
 function closeTransactionModal() { document.getElementById("transactionModalFull").classList.remove("show"); }
 
-function openServiceSelect() {
-  const name = prompt("Ketik nama layanan (contoh: Cuci Kering):", "Cuci Kering");
-  if(name && servicePrices[name]) {
-    const srv = servicePrices[name];
-    activeNewTransactionItems.push({ serviceType: name, weight: 1, total: srv.price }); renderTrxItems();
-  } else if (name) { showToast("Layanan tidak ditemukan!"); }
+// --- MODAL PILIH LAYANAN UNTUK TRANSAKSI BARU ---
+function injectSelectServiceModalHTML() {
+  if (document.getElementById("selectServiceModal")) return;
+  const modal = document.createElement("div");
+  modal.id = "selectServiceModal";
+  modal.className = "modal";
+  modal.innerHTML = `
+    <div class="modal-content" style="background: white; padding: 20px; border-radius: 16px; width: 92%; max-width: 420px; max-height: 85vh; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="font-size: 18px; font-weight: bold; color: var(--text);">Pilih Layanan</h3>
+        <button type="button" onclick="closeSelectServiceModal()" style="background:none; border:none; font-size:22px; cursor:pointer;">×</button>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <input type="text" id="searchServiceInput" placeholder="🔍 Cari layanan..." onkeyup="filterServiceListModal(this.value)" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; outline: none;">
+      </div>
+      <div id="modalServiceListContainer" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; max-height: 50vh;">
+        <!-- Daftar layanan akan dirender di sini -->
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
 }
+
+function openServiceSelect() {
+  injectSelectServiceModalHTML();
+  renderModalServiceList(servicePrices);
+  document.getElementById("searchServiceInput").value = "";
+  document.getElementById("selectServiceModal").classList.add("show");
+}
+
+function closeSelectServiceModal() {
+  const modal = document.getElementById("selectServiceModal");
+  if (modal) modal.classList.remove("show");
+}
+
+function renderModalServiceList(servicesObj) {
+  const container = document.getElementById("modalServiceListContainer");
+  if (!container) return;
+  
+  const keys = Object.keys(servicesObj);
+  if (keys.length === 0) {
+    container.innerHTML = `<p style="text-align: center; color: var(--muted); padding: 20px;">Belum ada layanan tersedia.</p>`;
+    return;
+  }
+
+  container.innerHTML = keys.map(name => {
+    const srv = servicesObj[name];
+    return `
+      <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px;">
+        <div>
+          <strong style="font-size: 14px; color: var(--text); display: block;">${escapeHTML(name)}</strong>
+          <span style="font-size: 12px; color: var(--primary); font-weight: bold;">${formatRupiah(srv.price)} / ${srv.unit}</span>
+        </div>
+        <button type="button" onclick="selectServiceForTransaction('${escapeHTML(name)}')" style="background: #e1edff; color: var(--primary); border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 12px;">+ Pilih</button>
+      </div>
+    `;
+  }).join("");
+}
+
+function filterServiceListModal(keyword) {
+  const q = keyword.toLowerCase().trim();
+  const filtered = {};
+  Object.keys(servicePrices).forEach(name => {
+    if (name.toLowerCase().includes(q)) {
+      filtered[name] = servicePrices[name];
+    }
+  });
+  renderModalServiceList(filtered);
+}
+
+function selectServiceForTransaction(name) {
+  const srv = servicePrices[name];
+  if (!srv) return;
+  
+  // Masukkan ke array transaksi aktif
+  activeNewTransactionItems.push({
+    serviceType: name,
+    weight: srv.minQty || 1,
+    total: srv.price * (srv.minQty || 1)
+  });
+  
+  renderTrxItems();
+  closeSelectServiceModal();
+  showToast(`Layanan ${name} ditambahkan`);
+}
+
 
 function renderTrxItems() {
   const c = document.getElementById("trxItemsContainer"); let grand = 0;
