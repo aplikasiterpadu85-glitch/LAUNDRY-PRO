@@ -1,4 +1,19 @@
-const WEB_APP_URL = "...";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqexADAqr70pCZg2vuiRVENBh1_rLhqeB98R2mbGp_ZeRFptvlvq9Rp2L-L1fO-fOvqQ/exec";
+
+// Fungsi untuk mengirim data dari aplikasi ke Google Sheets
+async function simpanData(dataTransaksi) {
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify(dataTransaksi)
+    });
+    const result = await response.json();
+    console.log(result.message);
+  } catch (error) {
+    console.error("Gagal menyimpan data:", error);
+  }
+}
+
 
 
 const safeStorage = {
