@@ -15,28 +15,6 @@ async function simpanData(dataTransaksi) {
 }
 
 
-
-const safeStorage = {
-  _memory: {},
-  getItem(key) {
-    try { return localStorage.getItem(key); }
-    catch (e) { return this._memory[key] || null; }
-  },
-  setItem(key, val) {
-    try { localStorage.setItem(key, val); }
-    catch (e) { this._memory[key] = String(val); }
-  }
-};
-
-function getSafeData(key, defaultData) {
-  try {
-    let data = JSON.parse(safeStorage.getItem(key));
-    return data !== null ? data : defaultData;
-  } catch (e) {
-    return defaultData;
-  }
-}
-
 let servicePrices = getSafeData("arsyServices", {
   "Cuci Kering": { price: 5000, unit: "kg", processes: ["Cuci", "Pengeringan", "Lipat"], duration: "3 Hari", minQty: 1, pinned: true },
   "Cuci Setrika": { price: 10000, unit: "kg", processes: ["Cuci"], duration: "1 Hari", minQty: 1, pinned: true },
