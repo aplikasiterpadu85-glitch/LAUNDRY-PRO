@@ -452,3 +452,256 @@ function renderCalcRows() {
   });
   c.scrollTop = c.scrollHeight;
 }
+/* ================= LOGIKA UTAMA LAUNDRY (DIPERBARUI) ================= */
+
+// Daftar Layanan Bawaan Arsy Laundry (Bisa ditambah/ubah di menu Layanan)
+if (!appData.services || Object.keys(appData.services).length === 0) {
+  appData.services = {
+    "Cuci Kering": { price: 5000, unit: "kg", duration: "3 Hari" },
+    "Cuci Setrika": { price: 10000, unit: "kg", duration: "1 Hari" },
+    "Bed Cover": { price: 25000, unit: "pcs", duration: "1 Hari" },
+    "Setrika Express": { price: 6000, unit: "kg", duration: "4 Jam" }
+  };
+}
+
+let activeNewTransactionItems = [];
+
+// Buka Modal Transaksi Baru
+function openTransactionModal() {
+  activeNewTransactionItems = [];
+  renderActiveTransactionItems();
+  
+  // Pastikan modal transaksi ada atau buat tampilannya
+  let modal = document.getElementById("transactionModalFull");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "transactionModalFull";
+    modal.className = "modal-overlay";
+    modal.innerHTML = `
+      <div class="modal-box" style="max-width: 450px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-header">
+          <h3>Transaksi Baru Laundry</h3>
+          <button onclick="closeFullTransactionModal()" class="btn-close">✕</button>
+        </div>
+        <form id="fullTransactionForm" onsubmit="saveFullTransaction(event)">
+          <div class="form-group">
+            <label>Nama Pelanggan</label>
+            <input type="text" id="trxCustomerName" placeholder="Contoh: Budi" required autocomplete="off">
+          </div>
+          
+          <div class="form-group">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+              <label style="margin:0;">Pilihan Layanan</label>
+              <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="promptAddServiceToTrx()">+ Pilih Layanan</button>
+            </div>
+            <div id="trxItemsContainer" style="background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:10px; min-height:60px;">
+              <span style="color:var(--text-muted); font-size:0.8rem;">Belum ada layanan dipilih</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Status Awal</label>
+            <select id="trxStatus">
+              <option value="Antrian">Antrian</option>
+              <option value="Proses">Proses</option>
+              <option value="Siap Diambil">Siap Diambil</option>
+              <option value="Selesai">Selesai</option>
+            </select>
+          </div>
+
+          <div style="background:#f0f9ff; padding:12px; border-radius:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:bold; font-size:0.9rem;">Total Tagihan:</span>
+            <b id="trxGrandTotalDisplay" style="color:var(--primary); font-size:1.1rem;">Rp 0</b>
+          </div>
+
+          <div class="modal-buttons">
+            <button type="button" class="btn-secondary" onclick="closeFullTransactionModal()">Batal</button>
+            <button type="submit" class="btn-primary">Simpan Transaksi</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  modal.style.display = "flex";
+}
+
+function closeFullTransactionModal() {
+  const modal = document.getElementById("transactionModalFull");
+  if(modal) modal.style.display = "none";
+}
+
+function promptAddServiceToTrx() {
+  const serviceNames = Object.keys(appData.services);
+  let choice = prompt("Pilih Layanan:\n" + serviceNames.map((s, i) => `${i+1}. ${s} (Rp ${appData.services[s].price}/${appData.services[s].unit})`).join("\n") + "\n\nKetik nomor layanan:");
+  
+  let idx = parseInt(choice) - 1;
+  if (!isNaN(idx) && serviceNames[idx]) {
+    let srvName = serviceNames[idx];
+    let srv = appData.services[srvName];
+    activeNewTransactionItems.push({
+      serviceType: srvName,
+      weight: 1,
+      total: srv.price
+    });
+    renderActiveTransactionItems();
+  }
+}
+
+function renderActiveTransactionItems() {
+  const container = document.getElementById("trxItemsContainer");
+  const totalDisplay = document.getElementById("trxGrandTotalDisplay");
+  if(!container) return;
+
+  if(activeNewTransactionItems.length === 0) {
+    container.innerHTML = `<span style="color:var(--text-muted); font-size:0.8rem;">Belum ada layanan dipilih</span>`;
+    if(totalDisplay) totalDisplay.textContent = formatRupiah(0);
+    return;
+  }
+
+  let grandTotal = 0;
+  container.innerHTML = activeNewTransactionItems.map((item, idx) => {
+    grandTotal += item.total;
+    let srv = appData.services[item.serviceType] || { unit: 'kg' };
+    return `
+      <div style="background:#fff; border:1px solid var(--border); border-radius:8px; padding:8px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <b style="font-size:0.85rem; color:var(--primary);">${item.serviceType}</b>
+          <div style="display:flex; align-items:center; gap:5px; margin-top:4px;">
+            <input type="number" step="any" value="${item.weight}" style="width:60px; padding:4px; text-align:center; font-size:0.8rem;" oninput="updateTrxWeight(${idx}, this.value)">
+            <span style="font-size:0.75rem; color:var(--text-muted);">${srv.unit}</span>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <b style="font-size:0.85rem;" id="trxItemTotal_${idx}">${formatRupiah(item.total)}</b>
+          <br><button type="button" onclick="removeTrxItem(${idx})" style="color:var(--red); background:none; border:none; font-size:0.75rem; cursor:pointer;">Hapus</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  if(totalDisplay) totalDisplay.textContent = formatRupiah(grandTotal);
+}
+
+function updateTrxWeight(idx, val) {
+  let w = parseFloat(val) || 0;
+  let item = activeNewTransactionItems[idx];
+  let srv = appData.services[item.serviceType];
+  item.weight = w;
+  item.total = Math.round(w * srv.price);
+  
+  document.getElementById(`trxItemTotal_${idx}`).textContent = formatRupiah(item.total);
+  
+  let grandTotal = activeNewTransactionItems.reduce((sum, it) => sum + it.total, 0);
+  document.getElementById("trxGrandTotalDisplay").textContent = formatRupiah(grandTotal);
+}
+
+function removeTrxItem(idx) {
+  activeNewTransactionItems.splice(idx, 1);
+  renderActiveTransactionItems();
+}
+
+function saveFullTransaction(e) {
+  e.preventDefault();
+  const name = document.getElementById("trxCustomerName").value.trim();
+  const status = document.getElementById("trxStatus").value;
+  
+  if(!name || activeNewTransactionItems.length === 0) {
+    showToast("Lengkapi nama dan minimal 1 layanan!");
+    return;
+  }
+
+  let grandTotal = activeNewTransactionItems.reduce((sum, it) => sum + it.total, 0);
+
+  const newTrx = {
+    id: Date.now(),
+    date: new Date().toISOString(),
+    customerName: name,
+    items: JSON.parse(JSON.stringify(activeNewTransactionItems)),
+    total: grandTotal,
+    status: status,
+    paymentStatus: "Belum Lunas",
+    paidAmount: 0,
+    cashier: currentUser ? currentUser.name : "Admin"
+  };
+
+  appData.transactions.unshift(newTrx);
+  saveToCloud();
+  closeFullTransactionModal();
+  renderDashboardLaundry();
+  renderAllTransactions();
+  calculateFinance();
+  showToast("Transaksi Laundry Berhasil Disimpan!");
+}
+
+/* Tampilkan Daftar Transaksi di Tab Laundry */
+let currentTrxFilter = 'Antrian';
+function filterTransactionsTab(status, btn) {
+  currentTrxFilter = status;
+  document.querySelectorAll('.trans-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAllTransactions();
+}
+
+function renderAllTransactions() {
+  const container = document.getElementById("allTransactions");
+  if(!container) return;
+
+  const searchInput = document.getElementById("transactionSearchInput");
+  const query = searchInput ? searchInput.value.toLowerCase().trim() : "";
+
+  let filtered = appData.transactions.filter(t => {
+    let matchStatus = true;
+    if (currentTrxFilter === 'Antrian') matchStatus = (t.status === 'Antrian' || t.status === 'Pending');
+    else if (currentTrxFilter === 'Proses') matchStatus = (t.status === 'Proses');
+    else if (currentTrxFilter === 'Siap Diambil') matchStatus = (t.status === 'Siap Diambil');
+    else if (currentTrxFilter === 'Selesai') matchStatus = (t.status === 'Selesai' || t.status === 'Lunas');
+
+    let matchSearch = t.customerName.toLowerCase().includes(query);
+    return matchStatus && matchSearch;
+  });
+
+  if(filtered.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:0.85rem;">Tidak ada transaksi</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(t => {
+    let statusClass = 'status-antrian';
+    if(t.status === 'Proses') statusClass = 'status-proses';
+    if(t.status === 'Siap Diambil') statusClass = 'status-siap';
+    if(t.status === 'Selesai') statusClass = 'status-selesai';
+
+    return `
+      <div class="trx-card">
+        <div class="trx-info">
+          <h4>TRX/${String(t.id).slice(-4)} - <b>${escapeHTML(t.customerName)}</b></h4>
+          <p>Total: <b>${formatRupiah(t.total)}</b> • ${new Date(t.date).toLocaleDateString('id-ID')}</p>
+          <span class="trx-status ${statusClass}" style="margin-top:6px; display:inline-block;">${t.status}</span>
+        </div>
+        <div>
+          <button class="btn-secondary" style="padding:6px 10px; font-size:0.75rem;" onclick="proposeNextStatus(${t.id})">Proses ➔</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function proposeNextStatus(id) {
+  let t = appData.transactions.find(item => item.id === id);
+  if(!t) return;
+  
+  if(t.status === 'Antrian') t.status = 'Proses';
+  else if(t.status === 'Proses') t.status = 'Siap Diambil';
+  else if(t.status === 'Siap Diambil') t.status = 'Selesai';
+  
+  saveToCloud();
+  renderAllTransactions();
+  renderDashboardLaundry();
+  calculateFinance();
+  showToast("Status diperbarui menjadi: " + t.status);
+}
+
+function escapeHTML(str) {
+  return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+}
