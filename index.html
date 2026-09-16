@@ -4,24 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#1769e0">
-  <title>Aplikasi Kasir & Keuangan</title>
+  <title>Aplikasi Kasir & Keuangan Terpadu</title>
   <link rel="stylesheet" href="style.css">
-  <!-- FontAwesome untuk Ikon -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-
-  <!-- ================= SCREEN LOGIN MULTI-USER ================= -->
+  <!-- ================= SCREEN LOGIN ================= -->
   <div id="loginScreen" class="login-overlay">
     <div class="login-box">
       <div class="login-icon">🔒</div>
-      <h2 id="loginOutletName">Nama Usaha</h2>
-      <p>Silakan masuk menggunakan akun Anda</p>
+      <h2 id="loginOutletName">Aplikasi Kasir</h2>
+      <p>Masukkan Username & Password</p>
       <div class="form-group">
-        <input type="text" id="loginUsername" placeholder="Username" autocomplete="off">
+        <input type="text" id="loginUsername" placeholder="Username (cth: admin)" autocomplete="off">
       </div>
       <div class="form-group">
-        <input type="password" id="loginPassword" placeholder="Password">
+        <input type="password" id="loginPassword" placeholder="Password (cth: 123)">
       </div>
       <button type="button" class="btn-primary" onclick="prosesLogin()">Masuk</button>
     </div>
@@ -29,8 +27,6 @@
 
   <!-- ================= APLIKASI UTAMA ================= -->
   <div id="mainApp" style="display: none;">
-    
-    <!-- TOPBAR -->
     <header class="topbar">
       <div>
         <marquee direction="left" scrollamount="6" class="topbar-marquee">
@@ -39,430 +35,203 @@
       </div>
       <div class="profile-icon" id="headerProfileIcon">U</div>
     </header>
-
-    <main class="container">
-      
-      <!-- ================= 1. DASHBOARD LAUNDRY ================= -->
+        <main class="container">
+      <!-- DASHBOARD LAUNDRY -->
       <section id="dashboardPage" class="page active">
-        <!-- Banner Keuangan -->
         <div class="welcome-card" onclick="showPage('financePage')" style="cursor: pointer;">
-          <div>
-            <p>Kelola Pengeluaran & Diari</p>
-            <h2>Keuangan Pribadi</h2>
-          </div>
+          <div><p>Kelola Pengeluaran & Diari</p><h2>Keuangan Pribadi</h2></div>
           <span class="laundry-icon">📔</span>
         </div>
-
         <div class="stat-grid">
           <div class="stat-card">
-            <span class="stat-icon blue">💰</span>
-            <p>Omzet Hari Ini</p>
-            <h3 id="todayIncome">Rp0</h3>
+            <span class="stat-icon blue">💰</span><p>Omzet Hari Ini</p><h3 id="todayIncome">Rp0</h3>
           </div>
           <div class="stat-card">
-            <span class="stat-icon green">🧾</span>
-            <p>Transaksi Hari Ini</p>
-            <h3 id="todayTransactions">0</h3>
+            <span class="stat-icon green">🧾</span><p>Transaksi Hari Ini</p><h3 id="todayTransactions">0</h3>
           </div>
           <div class="stat-card">
-            <span class="stat-icon orange">⏳</span>
-            <p>Belum Selesai</p>
-            <h3 id="pendingTransactions">0</h3>
+            <span class="stat-icon orange">⏳</span><p>Belum Selesai</p><h3 id="pendingTransactions">0</h3>
           </div>
-          <div class="stat-card">
-            <span class="stat-icon purple">👥</span>
-            <p>Total Pelanggan</p>
-            <h3 id="totalCustomers">0</h3>
+          <div class="stat-card" onclick="showPage('customerPage')">
+            <span class="stat-icon purple">👥</span><p>Total Pelanggan</p><h3 id="totalCustomers">0</h3>
           </div>
         </div>
-
-        <div class="section-title">
-          <h2>Menu Cepat</h2>
-        </div>
+        <div class="section-title"><h2>Menu Cepat</h2></div>
         <div class="quick-actions">
-          <button class="quick-button" onclick="openTransactionModal()">
-            <span>➕</span><b>Transaksi Baru</b>
-          </button>
-          <button class="quick-button" onclick="showPage('servicesPage')">
-            <span>🧼</span><b>Layanan</b>
-          </button>
-          <button class="quick-button" onclick="showPage('reportsPage')">
-            <span>📊</span><b>Laporan</b>
-          </button>
-          <button class="quick-button" onclick="showPage('akunPage')">
-            <span>⚙️</span><b>Pengaturan</b>
-          </button>
+          <button class="quick-button" onclick="openTransactionModal()"><span>➕</span><b>Transaksi Baru</b></button>
+          <button class="quick-button" onclick="showPage('servicesPage')"><span>🧼</span><b>Layanan</b></button>
+          <button class="quick-button" onclick="showPage('customerPage')"><span>👥</span><b>Pelanggan</b></button>
+          <button class="quick-button" onclick="showPage('akunPage')"><span>⚙️</span><b>Pengaturan</b></button>
         </div>
-
-        <div class="section-title">
-          <h2>Transaksi Terbaru</h2>
-          <button class="link-button" onclick="showPage('transactionsPage')">Lihat Semua</button>
-        </div>
+        <div class="section-title"><h2>Transaksi Terbaru</h2><button class="link-button" onclick="showPage('transactionsPage')">Lihat Semua</button></div>
         <div id="recentTransactions" class="transaction-list"></div>
       </section>
-      <!-- ================= 2. HALAMAN TRANSAKSI (LAUNDRY) ================= -->
+            <!-- HALAMAN TRANSAKSI LAUNDRY -->
       <section id="transactionsPage" class="page">
         <div class="transaction-tabs-container">
           <button type="button" class="trans-tab active" onclick="filterTransactionsTab('Antrian', this)">Antrian</button>
           <button type="button" class="trans-tab" onclick="filterTransactionsTab('Proses', this)">Proses</button>
-          <button type="button" class="trans-tab" onclick="filterTransactionsTab('Siap Diambil', this)">Siap Diambil</button>
+          <button type="button" class="trans-tab" onclick="filterTransactionsTab('Siap Diambil', this)">Siap</button>
           <button type="button" class="trans-tab" onclick="filterTransactionsTab('Selesai', this)">Selesai</button>
         </div>
         <div class="search-bar">
           <i class="fas fa-search"></i>
-          <input type="text" id="transactionSearchInput" placeholder="Cari nama pelanggan..." onkeyup="renderAllTransactions()">
+          <input type="text" id="transactionSearchInput" placeholder="Cari pelanggan..." onkeyup="renderAllTransactions()">
         </div>
         <div id="allTransactions" class="transaction-list"></div>
       </section>
 
-      <!-- ================= 3. HALAMAN KEUANGAN PRIBADI ================= -->
+      <!-- HALAMAN LAYANAN LAUNDRY -->
+      <section id="servicesPage" class="page">
+        <div class="page-header" style="display:flex; align-items:center; gap:10px; margin-bottom:15px;">
+          <button class="btn-back" onclick="showPage('dashboardPage')"><i class="fas fa-arrow-left"></i></button><h2>Daftar Layanan</h2>
+        </div>
+        <div id="servicesList"></div>
+        <button class="btn-primary" style="margin-top:15px;" onclick="openServiceModal()">+ Tambah Layanan</button>
+      </section>
+
+      <!-- HALAMAN PELANGGAN -->
+      <section id="customerPage" class="page">
+        <div class="page-header" style="display:flex; align-items:center; gap:10px; margin-bottom:15px;">
+          <button class="btn-back" onclick="showPage('dashboardPage')"><i class="fas fa-arrow-left"></i></button><h2>Daftar Pelanggan</h2>
+        </div>
+        <div id="customersListContainer"></div>
+      </section>
+            <!-- HALAMAN KEUANGAN PRIBADI -->
       <section id="financePage" class="page finance-theme">
         <div class="finance-header">
           <div class="fh-title">
             <button onclick="showPage('dashboardPage')" class="btn-back"><i class="fas fa-arrow-left"></i></button>
-            <div>
-              <h1>Buku Keuangan</h1>
-              <p>Sistem pencatatan terpadu</p>
-            </div>
+            <div><h1>Buku Keuangan</h1><p>Pencatatan & Laba Bersih</p></div>
           </div>
         </div>
-
         <div class="finance-content">
           <div class="month-selector-bar">
-            <label for="homeMonthFilter">Periode Bulan:</label>
-            <input type="month" id="homeMonthFilter" onchange="calculateFinance()">
+            <label for="homeMonthFilter">Periode:</label><input type="month" id="homeMonthFilter" onchange="calculateFinance()">
           </div>
-
           <div class="total-grid">
-            <div class="total-card card-red">
-              <span>PENGELUARAN</span>
-              <h2 id="totalPengeluaran">Rp 0</h2>
-            </div>
-            <div class="total-card card-blue">
-              <span>LABA BERSIH LAUNDRY</span>
-              <h2 id="labaBersihLaundry">Rp 0</h2>
-            </div>
+            <div class="total-card card-red"><span>PENGELUARAN</span><h2 id="totalPengeluaran">Rp 0</h2></div>
+            <div class="total-card card-blue"><span>LABA BERSIH</span><h2 id="labaBersihLaundry">Rp 0</h2></div>
           </div>
-
           <div class="menu-grid">
-            <div class="cat-card" onclick="openExpenseModal('HARIAN')">
-              <div class="icon-box bg-harian">📆</div>
-              <div><span class="cat-title title-harian">HARIAN</span><p class="cat-amount" id="sub-HARIAN">Rp 0</p></div>
-            </div>
-            <div class="cat-card" onclick="openExpenseModal('LAIN2')">
-              <div class="icon-box bg-lain">📚</div>
-              <div><span class="cat-title title-lain">LAIN2</span><p class="cat-amount" id="sub-LAIN2">Rp 0</p></div>
-            </div>
-            <div class="cat-card" onclick="openExpenseModal('LAUNDRY')">
-              <div class="icon-box bg-laundry">🧺</div>
-              <div><span class="cat-title title-laundry">BIAYA LAUNDRY</span><p class="cat-amount" id="sub-LAUNDRY">Rp 0</p></div>
-            </div>
-            <div class="cat-card" onclick="openExpenseModal('TABUNGAN / ARISAN')">
-              <div class="icon-box bg-arisan">📔</div>
-              <div><span class="cat-title title-arisan">TABUNGAN</span><p class="cat-amount" id="sub-TABUNGAN / ARISAN">Rp 0</p></div>
-            </div>
-            
-            <!-- Kalkulator & Diari -->
-            <div class="cat-card cat-card-full" onclick="showPage('calcPage')">
-              <div class="icon-box bg-lain">➗</div>
-              <div>
-                <span class="cat-title title-lain">KALKULATOR</span>
-                <p class="cat-amount">Alat Hitung Lembar</p>
-              </div>
-            </div>
-            <div class="cat-card cat-card-full" onclick="openNotesModal()">
-              <div class="icon-box bg-catatan">📝</div>
-              <div>
-                <span class="cat-title title-catatan">CATATAN & DIARI</span>
-                <p class="cat-amount" id="sub-CATATAN">0 Catatan</p>
-              </div>
-            </div>
-            
+            <div class="cat-card" onclick="openExpenseModal('HARIAN')"><div class="icon-box bg-harian">📆</div><div><span class="cat-title title-harian">HARIAN</span><p class="cat-amount" id="sub-HARIAN">Rp 0</p></div></div>
+            <div class="cat-card" onclick="openExpenseModal('LAIN2')"><div class="icon-box bg-lain">📚</div><div><span class="cat-title title-lain">LAIN2</span><p class="cat-amount" id="sub-LAIN2">Rp 0</p></div></div>
+            <div class="cat-card" onclick="openExpenseModal('LAUNDRY')"><div class="icon-box bg-laundry">🧺</div><div><span class="cat-title title-laundry">BIAYA LAUNDRY</span><p class="cat-amount" id="sub-LAUNDRY">Rp 0</p></div></div>
+            <div class="cat-card" onclick="openExpenseModal('TABUNGAN')"><div class="icon-box bg-arisan">📔</div><div><span class="cat-title title-arisan">TABUNGAN</span><p class="cat-amount" id="sub-TABUNGAN">Rp 0</p></div></div>
+            <div class="cat-card cat-card-full" onclick="showPage('calcPage')"><div class="icon-box bg-lain">➗</div><div><span class="cat-title title-lain">KALKULATOR</span><p class="cat-amount">Alat Hitung Lembar</p></div></div>
+            <div class="cat-card cat-card-full" onclick="openNotesModal()"><div class="icon-box bg-catatan">📝</div><div><span class="cat-title title-catatan">CATATAN & DIARI</span><p class="cat-amount" id="sub-CATATAN">0 Catatan</p></div></div>
           </div>
-          
-          <button class="btn-primary" style="width: 100%; margin-top: 15px;" onclick="showPage('financeReportPage')">Lihat Rincian Laporan Keuangan</button>
+          <button class="btn-primary" style="width: 100%; margin-top: 15px;" onclick="showPage('financeReportPage')">Rincian Laporan</button>
         </div>
       </section>
-
-      <!-- ================= 4. HALAMAN KALKULATOR ================= -->
+            <!-- HALAMAN KALKULATOR -->
       <section id="calcPage" class="page finance-theme" style="height: 100vh; overflow: hidden;">
         <div class="finance-header">
-           <div class="fh-title">
-             <button onclick="showPage('financePage')" class="btn-back"><i class="fas fa-arrow-left"></i></button>
-             <h2 id="calcDocTitle" style="font-size: 1.1rem; color: #0369a1; font-weight: 800; margin: 0;">Perhitungan</h2>
-           </div>
-           <button type="button" onclick="deleteCurrentCalcDoc()" class="btn-danger-small">Hapus Lembar</button>
+           <div class="fh-title"><button onclick="showPage('financePage')" class="btn-back"><i class="fas fa-arrow-left"></i></button><h2 style="font-size: 1.1rem; color: #0369a1; margin: 0;">Kalkulator Lembar</h2></div>
         </div>
         <div class="calc-container">
             <div id="calcRowsContainer"></div>
-            <input type="hidden" id="calcNoteInput" value="">
-            <div class="calc-screen-area">
-                <span id="activeOpSymbol" style="font-size: 1.5rem; font-weight: 900; color: #0284c7; margin-right: 8px;">+</span>
-                <input type="text" id="calcScreen" class="calc-screen" value="0" readonly>
-            </div>
+            <div class="calc-screen-area"><span id="activeOpSymbol" style="font-size: 1.5rem; color: #0284c7; margin-right: 8px;">+</span><input type="text" id="calcScreen" class="calc-screen" value="0" readonly></div>
             <div class="calc-keys">
-                <button class="calc-btn clear" onclick="calcClear()">AC</button>
-                <button class="calc-btn op" onclick="calcAppendPercent()">%</button>
-                <button class="calc-btn op" onclick="calcBackSpace()">⌫</button>
-                <button class="calc-btn op" onclick="calcAddOp('÷')">÷</button>
-                <button class="calc-btn" onclick="calcAppendNum('7')">7</button>
-                <button class="calc-btn" onclick="calcAppendNum('8')">8</button>
-                <button class="calc-btn" onclick="calcAppendNum('9')">9</button>
-                <button class="calc-btn op" onclick="calcAddOp('×')">×</button>
-                <button class="calc-btn" onclick="calcAppendNum('4')">4</button>
-                <button class="calc-btn" onclick="calcAppendNum('5')">5</button>
-                <button class="calc-btn" onclick="calcAppendNum('6')">6</button>
-                <button class="calc-btn op" onclick="calcAddOp('-')">-</button>
-                <button class="calc-btn" onclick="calcAppendNum('1')">1</button>
-                <button class="calc-btn" onclick="calcAppendNum('2')">2</button>
-                <button class="calc-btn" onclick="calcAppendNum('3')">3</button>
-                <button class="calc-btn op" onclick="calcAddOp('+')">+</button>
-                <button class="calc-btn" onclick="calcAppendNum('0')" style="grid-column: span 2;">0</button>
-                <button class="calc-btn" onclick="calcAppendNum('.')">.</button>
-                <button class="calc-btn equal" onclick="calcEquals()">=</button>
+                <button class="calc-btn clear" onclick="calcClear()">AC</button><button class="calc-btn op" onclick="calcBackSpace()">⌫</button><button class="calc-btn op" onclick="calcAddOp('÷')">÷</button><button class="calc-btn op" onclick="calcAddOp('×')">×</button>
+                <button class="calc-btn" onclick="calcAppendNum('7')">7</button><button class="calc-btn" onclick="calcAppendNum('8')">8</button><button class="calc-btn" onclick="calcAppendNum('9')">9</button><button class="calc-btn op" onclick="calcAddOp('-')">-</button>
+                <button class="calc-btn" onclick="calcAppendNum('4')">4</button><button class="calc-btn" onclick="calcAppendNum('5')">5</button><button class="calc-btn" onclick="calcAppendNum('6')">6</button><button class="calc-btn op" onclick="calcAddOp('+')">+</button>
+                <button class="calc-btn" onclick="calcAppendNum('1')">1</button><button class="calc-btn" onclick="calcAppendNum('2')">2</button><button class="calc-btn" onclick="calcAppendNum('3')">3</button><button class="calc-btn equal" onclick="calcEquals()">=</button>
+                <button class="calc-btn" onclick="calcAppendNum('0')" style="grid-column: span 2;">0</button><button class="calc-btn" onclick="calcAppendNum('000')">000</button><button class="calc-btn" onclick="calcAppendNum('.')">.</button>
             </div>
         </div>
       </section>
 
-      <!-- ================= 5. HALAMAN LAPORAN KEUANGAN ================= -->
+      <!-- LAPORAN KEUANGAN -->
       <section id="financeReportPage" class="page finance-theme">
-        <div class="finance-header">
-           <div class="fh-title">
-             <button onclick="showPage('financePage')" class="btn-back"><i class="fas fa-arrow-left"></i></button>
-             <h1>Data Transaksi Keuangan</h1>
-           </div>
-        </div>
-        <div class="finance-content">
-          <div class="filter-container-finance">
-              <div class="filter-row-fin">
-                  <label>Kategori:</label>
-                  <select id="dataFilterFinance" onchange="renderFinanceTable()">
-                      <option value="ALL">Semua Kategori</option>
-                      <option value="HARIAN">Harian</option>
-                      <option value="LAIN2">Lain2</option>
-                      <option value="LAUNDRY">Biaya Laundry</option>
-                      <option value="TABUNGAN / ARISAN">Tabungan</option>
-                  </select>
-              </div>
-          </div>
-          <div class="table-wrapper-fin">
-              <table>
-                  <thead>
-                      <tr>
-                          <th>Tgl</th>
-                          <th>Kategori</th>
-                          <th>Keterangan</th>
-                          <th>Nominal</th>
-                          <th>Hapus</th>
-                      </tr>
-                  </thead>
-                  <tbody id="tableBodyFinance"></tbody>
-              </table>
-          </div>
+        <div class="finance-header"><div class="fh-title"><button onclick="showPage('financePage')" class="btn-back"><i class="fas fa-arrow-left"></i></button><h1>Riwayat Keuangan</h1></div></div>
+        <div class="table-wrapper-fin">
+          <table><thead><tr><th>Tgl</th><th>Kategori</th><th>Ket</th><th>Rp</th><th>Del</th></tr></thead><tbody id="tableBodyFinance"></tbody></table>
         </div>
       </section>
 
-      <!-- ================= 6. PENGATURAN (AKUN & KARYAWAN) ================= -->
+      <!-- PENGATURAN -->
       <section id="akunPage" class="page">
-        <div class="account-header">
-          <div class="profile-icon-large" id="bigProfileIcon">U</div>
-          <div>
-            <h2 id="dispOutletName">Nama Usaha</h2>
-            <p id="dispOutletAddress">Alamat Usaha Belum Diatur</p>
-            <p id="dispOutletPhone">-</p>
-          </div>
-        </div>
-
+        <div class="account-header"><div class="profile-icon-large" id="bigProfileIcon">U</div><div><h2 id="dispOutletName">Nama Usaha</h2><p id="dispOutletAddress">Alamat</p></div></div>
         <div class="settings-menu">
-          <div class="section-title"><h3>Identitas & Keamanan</h3></div>
-          <button class="setting-item" onclick="openOutletModal()">
-            <span class="icon">🏠</span> <b>Ubah Data Usaha</b> <i class="fas fa-chevron-right"></i>
-          </button>
-          <button class="setting-item admin-only" onclick="showPage('karyawanPage')">
-            <span class="icon">👥</span> <b>Kelola Karyawan (Multi-User)</b> <i class="fas fa-chevron-right"></i>
-          </button>
-          
-          <div class="section-title"><h3>Perangkat & Lainnya</h3></div>
-          <button class="setting-item" onclick="showToast('Fitur Printer Segera Tersedia')">
-            <span class="icon">🖨️</span> <b>Printer Bluetooth</b> <i class="fas fa-chevron-right"></i>
-          </button>
-          <button class="setting-item" onclick="prosesLogout()" style="color: #dc2626;">
-            <span class="icon">🚪</span> <b>Keluar (Logout)</b>
-          </button>
+          <div class="section-title"><h3>Identitas</h3></div>
+          <button class="setting-item" onclick="openOutletModal()"><span class="icon">🏠</span><b>Data Usaha</b></button>
+          <button class="setting-item admin-only" onclick="showPage('karyawanPage')"><span class="icon">👥</span><b>Kelola Karyawan</b></button>
+          <div class="section-title"><h3>Sistem</h3></div>
+          <button class="setting-item" onclick="showToast('Fitur Cetak Segera Hadir')"><span class="icon">🖨️</span><b>Printer Bluetooth</b></button>
+          <button class="setting-item" onclick="prosesLogout()" style="color:#dc2626;"><span class="icon">🚪</span><b>Keluar</b></button>
         </div>
       </section>
 
-      <!-- HALAMAN KELOLA KARYAWAN -->
       <section id="karyawanPage" class="page">
-        <div class="page-header">
-          <button class="btn-back" onclick="showPage('akunPage')"><i class="fas fa-arrow-left"></i></button>
-          <h2>Kelola Karyawan</h2>
-        </div>
-        <div class="content-padding">
-          <button class="btn-primary" onclick="openKaryawanModal()" style="margin-bottom: 15px;">+ Tambah Akun Karyawan</button>
-          <div id="karyawanList" class="list-container"></div>
-        </div>
+        <div class="page-header" style="display:flex; align-items:center; gap:10px; margin-bottom:15px;"><button class="btn-back" onclick="showPage('akunPage')"><i class="fas fa-arrow-left"></i></button><h2>Kelola Karyawan</h2></div>
+        <button class="btn-primary" onclick="openKaryawanModal()" style="margin-bottom:15px;">+ Tambah Akun</button>
+        <div id="karyawanList"></div>
       </section>
-
-      <!-- Tempat penampung halaman lainnya (Layanan, Laporan Laundry, Detail Transaksi) -->
-      <section id="servicesPage" class="page">
-          <div class="page-header">
-              <button class="btn-back" onclick="showPage('dashboardPage')"><i class="fas fa-arrow-left"></i></button>
-              <h2>Layanan Laundry</h2>
-          </div>
-          <div id="servicesList" class="content-padding"></div>
-          <button class="fab-button" onclick="openServiceModal()">+</button>
-      </section>
-
     </main>
 
-    <!-- ================= BOTTOM NAVIGATION ================= -->
+    <!-- BOTTOM NAV -->
     <nav class="bottom-nav">
-      <button class="nav-button active" data-page="dashboardPage" onclick="showPage('dashboardPage')">
-        <i class="fas fa-home"></i><small>Beranda</small>
-      </button>
-      <button class="nav-button" data-page="transactionsPage" onclick="showPage('transactionsPage')">
-        <i class="fas fa-clipboard-list"></i><small>Laundry</small>
-      </button>
-      <button class="nav-button add-button" onclick="openTransactionModal()">
-        <i class="fas fa-plus"></i>
-      </button>
-      <button class="nav-button" data-page="financePage" onclick="showPage('financePage')">
-        <i class="fas fa-wallet"></i><small>Keuangan</small>
-      </button>
-      <button class="nav-button" data-page="akunPage" onclick="showPage('akunPage')">
-        <i class="fas fa-cog"></i><small>Pengaturan</small>
-      </button>
+      <button class="nav-button active" data-page="dashboardPage" onclick="showPage('dashboardPage')"><i class="fas fa-home"></i><small>Beranda</small></button>
+      <button class="nav-button" data-page="transactionsPage" onclick="showPage('transactionsPage')"><i class="fas fa-clipboard-list"></i><small>Laundry</small></button>
+      <button class="nav-button add-button" onclick="openTransactionModal()"><i class="fas fa-plus"></i></button>
+      <button class="nav-button" data-page="financePage" onclick="showPage('financePage')"><i class="fas fa-wallet"></i><small>Keuangan</small></button>
+      <button class="nav-button" data-page="akunPage" onclick="showPage('akunPage')"><i class="fas fa-cog"></i><small>Pengaturan</small></button>
     </nav>
-  </div> <!-- End Main App -->
-  <!-- ================= DAFTAR MODAL (POPUP) ================= -->
-  
-  <!-- Modal Loading (Cloud Sync) -->
-  <div id="loadingModal" class="modal-overlay" style="display: none; z-index: 99999;">
-    <div class="loading-box">
-      <div class="spinner"></div>
-      <p id="loadingText">Menyinkronkan data...</p>
-    </div>
   </div>
-
-  <!-- Modal Diari/Catatan (Dengan Waktu) -->
-  <div id="notesModal" class="modal-overlay" style="display: none;">
-    <div class="modal-box finance-modal">
-        <div class="modal-header">
-            <h3>📖 Diari Harian</h3>
-            <button onclick="closeNotesModal()" class="btn-close">✕</button>
-        </div>
-        <button class="btn-primary" onclick="openAddNoteForm()" style="margin-bottom: 12px;">+ Tulis Catatan Baru</button>
-        <div id="notesListContainer" style="max-height: 400px; overflow-y: auto;"></div>
-    </div>
-  </div>
-
-  <div id="addNoteModal" class="modal-overlay" style="display: none; z-index: 1100;">
-      <div class="modal-box finance-modal">
-          <h3>Tulis Catatan</h3>
-          <form id="noteForm">
-              <div class="form-group">
-                  <label>Tanggal & Waktu</label>
-                  <input type="datetime-local" id="noteDateTime" required>
-              </div>
-              <div class="form-group">
-                  <label>Isi Catatan</label>
-                  <textarea id="noteContent" rows="4" placeholder="Tuliskan kejadian hari ini..." required></textarea>
-              </div>
-              <div class="modal-buttons">
-                  <button type="button" class="btn-secondary" onclick="closeAddNoteForm()">Batal</button>
-                  <button type="submit" class="btn-primary">Simpan</button>
-              </div>
-          </form>
-      </div>
-  </div>
-
-  <!-- Modal Input Keuangan Pribadi -->
-  <div id="expenseModal" class="modal-overlay" style="display: none;">
-      <div class="modal-box finance-modal">
-          <h3 id="expenseModalTitle">Catat Pengeluaran</h3>
-          <form id="expenseForm">
-              <input type="hidden" id="expenseCategory">
-              <div class="form-group">
-                  <label>Tanggal</label>
-                  <input type="date" id="expenseDate" required>
-              </div>
-              <div class="form-group">
-                  <label>Keterangan</label>
-                  <input type="text" id="expenseDesc" placeholder="Cth: Beli deterjen..." required autocomplete="off">
-              </div>
-              <div class="form-group">
-                  <label>Nominal (Rp)</label>
-                  <input type="number" id="expenseAmount" placeholder="0" min="1" required>
-              </div>
-              <div class="modal-buttons">
-                  <button type="button" class="btn-secondary" onclick="closeExpenseModal()">Batal</button>
-                  <button type="submit" class="btn-primary">Simpan</button>
-              </div>
-          </form>
-      </div>
-  </div>
-
-  <!-- Modal Data Outlet / Usaha -->
-  <div id="outletModal" class="modal-overlay" style="display: none;">
-    <div class="modal-box">
-      <h3>Data Usaha (White-Label)</h3>
-      <form id="outletForm">
+    <!-- ================= MODALS (FORM POP-UP ASLI ARSY LAUNDRY) ================= -->
+  <!-- MODAL TRANSAKSI BARU -->
+  <div id="transactionModalFull" class="modal-overlay" style="display: none; z-index: 2500;">
+    <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header"><h3>Buat Transaksi Baru</h3><button type="button" onclick="closeFullTransactionModal()" class="btn-close">✕</button></div>
+      <form id="fullTransactionForm" onsubmit="saveFullTransaction(event)">
+        <div class="form-group"><label>Nama Pelanggan</label><input type="text" id="trxCustomerName" required autocomplete="off"></div>
         <div class="form-group">
-          <label>Nama Usaha / Toko</label>
-          <input type="text" id="inputOutletName" placeholder="Contoh: Arsy Laundry" required>
+          <label>Pilih Layanan Cucian</label>
+          <div style="display:flex; gap:10px;">
+            <select id="trxServiceSelect" style="flex:1;"></select>
+            <input type="number" id="trxServiceQty" value="1" step="any" style="width:70px; text-align:center;">
+            <button type="button" class="btn-primary" style="width:auto; padding:0 15px;" onclick="addServiceToCart()">+</button>
+          </div>
         </div>
+        <div id="trxItemsContainer" style="background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:10px; margin-bottom:15px;"></div>
         <div class="form-group">
-          <label>No. Handphone</label>
-          <input type="text" id="inputOutletPhone" placeholder="Contoh: 0812...">
+          <label>Status Pembayaran</label>
+          <select id="trxPaymentStatus"><option value="Belum Lunas">Belum Lunas</option><option value="Lunas">Lunas</option></select>
         </div>
-        <div class="form-group">
-          <label>Alamat Lengkap</label>
-          <textarea id="inputOutletAddress" rows="3" placeholder="Masukkan alamat usaha"></textarea>
+        <div style="background:#f0f9ff; padding:12px; border-radius:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+          <b>Total Tagihan:</b><b id="trxGrandTotalDisplay" style="color:var(--primary); font-size:1.1rem;">Rp 0</b>
         </div>
-        <div class="modal-buttons">
-            <button type="button" class="btn-secondary" onclick="closeOutletModal()">Batal</button>
-            <button type="submit" class="btn-primary">Simpan Profil</button>
-        </div>
+        <button type="submit" class="btn-primary">Simpan Transaksi</button>
       </form>
     </div>
   </div>
 
-  <!-- Modal Kelola Karyawan -->
-  <div id="karyawanModal" class="modal-overlay" style="display: none;">
+  <!-- MODAL TAMBAH LAYANAN -->
+  <div id="addServiceModal" class="modal-overlay" style="display: none; z-index: 2600;">
     <div class="modal-box">
-      <h3 id="karyawanModalTitle">Tambah Akun Karyawan</h3>
-      <form id="karyawanForm">
-        <input type="hidden" id="karyawanId">
-        <div class="form-group">
-          <label>Nama Karyawan</label>
-          <input type="text" id="inputKarName" placeholder="Nama asli" required>
-        </div>
-        <div class="form-group">
-          <label>Username (Untuk Login)</label>
-          <input type="text" id="inputKarUser" placeholder="Tanpa spasi" required>
-        </div>
-        <div class="form-group">
-          <label>Password</label>
-          <input type="text" id="inputKarPass" placeholder="Minimal 4 karakter" required>
-        </div>
-        <div class="form-group">
-          <label>Hak Akses (Role)</label>
-          <select id="inputKarRole">
-            <option value="Karyawan">Karyawan (Kasir Laundry)</option>
-            <option value="Admin">Admin (Bisa akses Keuangan)</option>
-          </select>
-        </div>
-        <div class="modal-buttons">
-            <button type="button" class="btn-secondary" onclick="closeKaryawanModal()">Batal</button>
-            <button type="submit" class="btn-primary">Simpan Akun</button>
-        </div>
+      <div class="modal-header"><h3>Tambah Layanan Baru</h3><button type="button" onclick="closeAddServiceModal()" class="btn-close">✕</button></div>
+      <form id="addServiceForm" onsubmit="saveNewService(event)">
+        <div class="form-group"><label>Nama Layanan (cth: Cuci Kering)</label><input type="text" id="newSrvName" required></div>
+        <div class="form-group"><label>Harga (Rp)</label><input type="number" id="newSrvPrice" required></div>
+        <div class="form-group"><label>Satuan</label><select id="newSrvUnit"><option value="kg">Per Kilogram (kg)</option><option value="pcs">Per Potong (pcs)</option></select></div>
+        <button type="submit" class="btn-primary">Simpan Layanan</button>
       </form>
     </div>
   </div>
 
-  <!-- Toast Notification -->
+  <!-- MODAL LAINNYA (Keuangan, Diari, Loading, Toast) -->
+  <div id="loadingModal" class="modal-overlay" style="display:none; z-index:99999;"><div class="loading-box"><div class="spinner"></div><p>Loading...</p></div></div>
   <div id="toast" class="toast">Notifikasi</div>
+  
+  <div id="notesModal" class="modal-overlay" style="display: none;"><div class="modal-box"><div class="modal-header"><h3>Diari Harian</h3><button onclick="document.getElementById('notesModal').style.display='none'" class="btn-close">✕</button></div><button class="btn-primary" onclick="document.getElementById('addNoteModal').style.display='flex'; document.getElementById('noteDateTime').value=new Date().toISOString().slice(0, 16);" style="margin-bottom:12px;">+ Tulis</button><div id="notesListContainer"></div></div></div>
+  <div id="addNoteModal" class="modal-overlay" style="display: none; z-index: 2700;"><div class="modal-box"><h3>Tulis Catatan</h3><form id="noteForm"><input type="datetime-local" id="noteDateTime" class="form-group" style="width:100%; margin-bottom:10px;"><textarea id="noteContent" class="form-group" rows="4" style="width:100%;" required></textarea><button type="submit" class="btn-primary">Simpan</button></form></div></div>
+  
+  <div id="expenseModal" class="modal-overlay" style="display: none;"><div class="modal-box"><h3 id="expenseModalTitle">Catat</h3><form id="expenseForm"><input type="hidden" id="expenseCategory"><input type="date" id="expenseDate" class="form-group" style="width:100%; margin-bottom:10px;" required><input type="text" id="expenseDesc" placeholder="Keterangan" class="form-group" style="width:100%; margin-bottom:10px;" required><input type="number" id="expenseAmount" placeholder="Nominal" class="form-group" style="width:100%; margin-bottom:10px;" required><button type="submit" class="btn-primary">Simpan</button></form></div></div>
+
+  <div id="outletModal" class="modal-overlay" style="display:none;"><div class="modal-box"><h3>Profil Usaha</h3><form id="outletForm"><input type="text" id="inputOutletName" placeholder="Nama Usaha" class="form-group" style="width:100%; margin-bottom:10px;" required><textarea id="inputOutletAddress" placeholder="Alamat" class="form-group" style="width:100%; margin-bottom:10px;"></textarea><input type="text" id="inputOutletPhone" placeholder="No HP" class="form-group" style="width:100%; margin-bottom:10px;"><button type="submit" class="btn-primary">Simpan</button></form></div></div>
+
+  <div id="karyawanModal" class="modal-overlay" style="display:none;"><div class="modal-box"><h3>Tambah Karyawan</h3><form id="karyawanForm"><input type="text" id="inputKarName" placeholder="Nama Asli" class="form-group" style="width:100%; margin-bottom:10px;" required><input type="text" id="inputKarUser" placeholder="Username Login" class="form-group" style="width:100%; margin-bottom:10px;" required><input type="text" id="inputKarPass" placeholder="Password" class="form-group" style="width:100%; margin-bottom:10px;" required><select id="inputKarRole" class="form-group" style="width:100%; margin-bottom:10px;"><option value="Karyawan">Kasir</option><option value="Admin">Admin</option></select><button type="submit" class="btn-primary">Simpan</button></form></div></div>
 
   <script src="app.js"></script>
 </body>
