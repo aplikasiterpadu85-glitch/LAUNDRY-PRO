@@ -1,33 +1,5 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqexADAqr70pCZg2vuiRVENBh1_rLhqeB98R2mbGp_ZeRFptvlvq9Rp2L-L1fO-fOvqQ/exec";
 
-// Fungsi untuk mengirim data dari aplikasi ke Google Sheets
-async function simpanData(dataTransaksi) {
-  try {
-    const response = await fetch(SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify(dataTransaksi)
-    });
-    const result = await response.json();
-    console.log(result.message);
-  } catch (error) {
-    console.error("Gagal menyimpan data:", error);
-  }
-}
-{
-  "idTransaksi": "TRX-001",
-  "tanggalLaundry": "2026-09-16",
-  "namaPelanggan": "Budi",
-  "totalLaundry": 50000,
-  "statusLaundry": "Selesai",
-  "pembayaranLaundry": "Lunas",
-  "idKeuangan": "FIN-001",
-  "dateKeuangan": "2026-09-16",
-  "categoryKeuangan": "Pemasukan Laundry",
-  "descKeuangan": "Laundry Pak Budi",
-  "amountKeuangan": 50000
-}
-
-
 let servicePrices = getSafeData("arsyServices", {
   "Cuci Kering": { price: 5000, unit: "kg", processes: ["Cuci", "Pengeringan", "Lipat"], duration: "3 Hari", minQty: 1, pinned: true },
   "Cuci Setrika": { price: 10000, unit: "kg", processes: ["Cuci"], duration: "1 Hari", minQty: 1, pinned: true },
