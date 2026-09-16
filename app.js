@@ -13,6 +13,19 @@ async function simpanData(dataTransaksi) {
     console.error("Gagal menyimpan data:", error);
   }
 }
+{
+  "idTransaksi": "TRX-001",
+  "tanggalLaundry": "2026-09-16",
+  "namaPelanggan": "Budi",
+  "totalLaundry": 50000,
+  "statusLaundry": "Selesai",
+  "pembayaranLaundry": "Lunas",
+  "idKeuangan": "FIN-001",
+  "dateKeuangan": "2026-09-16",
+  "categoryKeuangan": "Pemasukan Laundry",
+  "descKeuangan": "Laundry Pak Budi",
+  "amountKeuangan": 50000
+}
 
 
 let servicePrices = getSafeData("arsyServices", {
