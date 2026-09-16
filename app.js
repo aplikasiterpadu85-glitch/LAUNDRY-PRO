@@ -346,4 +346,6 @@ function renderCalcRows() {
     else { if(r.op==='+') t+=r.val; else if(r.op==='-') t-=r.val; else if(r.op==='×') t*=r.val; else if(r.op==='÷') t/=r.val; return `<div style="display:flex; justify-content:space-between; color:#666;"><span>${r.op}</span><span>${r.val.toLocaleString('id-ID')}</span></div>`; }
   }).join("");
   c.scrollTop = c.scrollHeight;
-}
+  }
+                      
+  
