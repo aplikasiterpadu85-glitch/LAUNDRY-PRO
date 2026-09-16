@@ -369,3 +369,140 @@ function updateReports() {}
 function openServiceModal() { document.getElementById("serviceModal").classList.add("show"); }
 function openEditServiceModal() { document.getElementById("serviceModal").classList.add("show"); }
 function openReportDetail() { showToast("Buka fitur laporan di source code utama jenengan."); }
+// --- MODAL LAYANAN LENGKAP ARSY LAUNDRY ---
+function injectRichServiceModalHTML() {
+  if (document.getElementById("serviceModal")) return;
+  const modalEl = document.createElement("div");
+  modalEl.id = "serviceModal";
+  modalEl.className = "modal";
+  modalEl.innerHTML = `
+    <div class="modal-content" style="background: white; padding: 20px; border-radius: 16px; width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h3 id="serviceModalTitle" style="font-size:18px; font-weight:bold; color:var(--text);">Tambah Layanan</h3>
+        <button type="button" onclick="closeServiceModal()" style="background:none; border:none; font-size:22px; cursor:pointer;">×</button>
+      </div>
+      <form id="richServiceForm" onsubmit="saveRichService(event)">
+        <input type="hidden" id="editServiceOldName" value="">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Nama Layanan</label>
+          <input type="text" id="srvName" placeholder="Contoh: Baju bayi kering" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;" required>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:6px;">Proses Laundry</label>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+            <label style="font-size:13px; display:flex; align-items:center; gap:6px;"><input type="checkbox" name="srvProcess" value="Cuci"> Cuci</label>
+            <label style="font-size:13px; display:flex; align-items:center; gap:6px;"><input type="checkbox" name="srvProcess" value="Pengeringan"> Pengeringan</label>
+            <label style="font-size:13px; display:flex; align-items:center; gap:6px;"><input type="checkbox" name="srvProcess" value="Setrika"> Setrika</label>
+            <label style="font-size:13px; display:flex; align-items:center; gap:6px;"><input type="checkbox" name="srvProcess" value="Lipat"> Lipat</label>
+            <label style="font-size:13px; display:flex; align-items:center; gap:6px;"><input type="checkbox" name="srvProcess" value="Packing"> Packing</label>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:12px;">
+          <div style="flex:1;">
+            <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Harga (Rp)</label>
+            <input type="number" id="srvPrice" placeholder="0" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;" required>
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Satuan</label>
+            <select id="srvUnit" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;">
+              <option value="kg">kg</option><option value="pcs">pcs</option><option value="set">set</option><option value="m²">m²</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:12px;">
+          <div style="flex:1;">
+            <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Durasi</label>
+            <input type="text" id="srvDuration" value="1 Hari" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Min. Kuantitas</label>
+            <input type="number" id="srvMinQty" value="1" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;">
+          </div>
+        </div>
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer;">
+            <input type="checkbox" id="srvPinned" style="width: 18px; height: 18px;"> Sematkan di Urutan Atas (Favorit/Utama)
+          </label>
+        </div>
+        <button type="submit" class="submit-button">Simpan</button>
+        <button type="button" id="btnDeleteService" class="submit-button" style="background:#dc2626; margin-top:8px; display:none;" onclick="deleteCurrentService()">Hapus Layanan</button>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(modalEl);
+}
+
+function openServiceModal() {
+  injectRichServiceModalHTML();
+  document.getElementById("serviceModalTitle").textContent = "Tambah Layanan";
+  document.getElementById("editServiceOldName").value = "";
+  document.getElementById("srvName").value = "";
+  document.getElementById("srvPrice").value = "";
+  document.getElementById("srvDuration").value = "1 Hari";
+  document.getElementById("srvMinQty").value = "1";
+  document.getElementById("srvPinned").checked = false;
+  document.querySelectorAll("input[name='srvProcess']").forEach(cb => cb.checked = false);
+  document.getElementById("btnDeleteService").style.display = "none";
+  document.getElementById("serviceModal").classList.add("show");
+}
+
+function openEditServiceModal(name) {
+  injectRichServiceModalHTML();
+  const srv = servicePrices[name];
+  if (!srv) return;
+  document.getElementById("serviceModalTitle").textContent = "Ubah Layanan";
+  document.getElementById("editServiceOldName").value = name;
+  document.getElementById("srvName").value = name;
+  document.getElementById("srvPrice").value = srv.price;
+  document.getElementById("srvDuration").value = srv.duration || "1 Hari";
+  document.getElementById("srvMinQty").value = srv.minQty || 1;
+  document.getElementById("srvUnit").value = srv.unit || "kg";
+  document.getElementById("srvPinned").checked = !!srv.pinned;
+  
+  const processes = srv.processes || [];
+  document.querySelectorAll("input[name='srvProcess']").forEach(cb => {
+    cb.checked = processes.includes(cb.value);
+  });
+  document.getElementById("btnDeleteService").style.display = "block";
+  document.getElementById("serviceModal").classList.add("show");
+}
+
+function closeServiceModal() {
+  const modal = document.getElementById("serviceModal");
+  if (modal) modal.classList.remove("show");
+}
+
+function saveRichService(e) {
+  e.preventDefault();
+  const oldName = document.getElementById("editServiceOldName").value.trim();
+  const newName = document.getElementById("srvName").value.trim();
+  const price = Number(document.getElementById("srvPrice").value);
+  const unit = document.getElementById("srvUnit").value;
+  const duration = document.getElementById("srvDuration").value.trim() || "1 Hari";
+  const minQty = Number(document.getElementById("srvMinQty").value) || 1;
+  const pinned = document.getElementById("srvPinned").checked;
+  
+  const processes = [];
+  document.querySelectorAll("input[name='srvProcess']:checked").forEach(cb => { processes.push(cb.value); });
+
+  if (!newName || isNaN(price)) { showToast("Nama dan harga wajib diisi"); return; }
+  if (oldName && oldName !== newName) { delete servicePrices[oldName]; }
+
+  servicePrices[newName] = { price, unit, processes, duration, minQty, pinned };
+  safeStorage.setItem("arsyServices", JSON.stringify(servicePrices));
+  renderServices();
+  closeServiceModal();
+  showToast("Layanan berhasil disimpan");
+}
+
+function deleteCurrentService() {
+  const name = document.getElementById("editServiceOldName").value.trim();
+  if (!name) return;
+  if (confirm(`Hapus layanan "${name}"?`)) {
+    delete servicePrices[name];
+    safeStorage.setItem("arsyServices", JSON.stringify(servicePrices));
+    renderServices();
+    closeServiceModal();
+    showToast("Layanan dihapus");
+  }
+}
