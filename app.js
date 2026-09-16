@@ -832,3 +832,293 @@ if(typeof openTransactionModal !== 'undefined') {
     if(mdl) mdl.style.display = "flex";
   };
 }
+// ==============================================================================
+// PLUGIN TAMBAHAN: KEUANGAN SISI TITI & MULTI-USER (ADMIN VS KASIR)
+// (Kode ini berjalan otomatis tanpa merusak fitur utama Arsy Laundry)
+// ==============================================================================
+
+window.currentUserRole = safeStorage.getItem("arsyUserRole") || null;
+let expensesData = getSafeData("arsyExpenses", []);
+
+// 1. SISTEM LOGIN MULTI-USER (Mengganti fungsi login bawaan)
+window.injectLoginModal = function() {
+  if (document.getElementById("loginScreen")) document.getElementById("loginScreen").remove();
+  const isLoggedIn = safeStorage.getItem("arsyIsLoggedIn") === "true";
+  
+  const div = document.createElement("div");
+  div.id = "loginScreen";
+  div.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; z-index: 99999; display: ${isLoggedIn ? 'none' : 'flex'}; justify-content: center; align-items: center; padding: 20px;`;
+  div.innerHTML = `
+    <div style="background: white; padding: 25px; border-radius: 16px; width: 100%; max-width: 360px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); text-align: center;">
+      <h2 style="font-size: 20px; font-weight: bold; color: var(--text); margin-bottom: 6px;">Arsy Laundry</h2>
+      <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">Pilih akses dan masukkan PIN</p>
+      <select id="loginRole" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; margin-bottom: 10px; outline:none; background:white;">
+        <option value="kasir">Karyawan (Kasir)</option>
+        <option value="admin">Pemilik (Admin)</option>
+      </select>
+      <input type="password" id="pinInput" placeholder="Masukkan PIN" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; text-align: center; letter-spacing: 4px; margin-bottom: 15px; outline:none;">
+      <button onclick="verifyPin()" style="background: var(--primary); color: white; width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; font-size: 14px;">Masuk</button>
+      <p style="font-size: 11px; color: var(--muted); margin-top: 15px;">*PIN Admin: 1985 | Kasir: 1234</p>
+    </div>
+  `;
+  document.body.appendChild(div);
+};
+
+window.verifyPin = function() {
+  const role = document.getElementById("loginRole").value;
+  const pinInputEl = document.getElementById("pinInput");
+  const pin = pinInputEl ? pinInputEl.value.trim() : "";
+  
+  if (role === "admin" && pin === "1985") { 
+    loginSuccess(role); 
+  } else if (role === "kasir" && pin === "1234") { 
+    loginSuccess(role); 
+  } else { 
+    showToast("PIN salah untuk akses " + role.toUpperCase()); 
+  }
+};
+
+window.loginSuccess = function(role) {
+  safeStorage.setItem("arsyIsLoggedIn", "true");
+  safeStorage.setItem("arsyUserRole", role);
+  window.currentUserRole = role;
+  
+  const screen = document.getElementById("loginScreen");
+  if(screen) screen.style.display = "none";
+  
+  applyRoleRestrictions();
+  showToast(`Berhasil masuk sebagai ${role.toUpperCase()}`);
+};
+
+window.logout = function() {
+  if(confirm("Yakin ingin keluar dari sistem?")) { 
+    safeStorage.setItem("arsyIsLoggedIn", "false"); 
+    safeStorage.removeItem("arsyUserRole");
+    location.reload(); 
+  }
+};
+
+window.applyRoleRestrictions = function() {
+  const adminElements = document.querySelectorAll('.admin-only');
+  adminElements.forEach(el => {
+    el.style.display = (window.currentUserRole === 'kasir') ? 'none' : '';
+  });
+  
+  const reportNavBtn = document.querySelector('.nav-button[data-page="reportsPage"]');
+  if (reportNavBtn) reportNavBtn.style.display = (window.currentUserRole === 'kasir') ? 'none' : 'flex';
+};
+
+
+// 2. KEUANGAN SISI TITI (Disuntikkan secara otomatis ke HTML)
+window.injectKeuanganPageHTML = function() {
+  if(document.getElementById("keuanganPage")) return;
+  const sec = document.createElement("section");
+  sec.id = "keuanganPage";
+  sec.className = "page report-page admin-only";
+  sec.innerHTML = `
+    <div class="report-header" style="display:flex; align-items:center; gap:15px; padding:20px; background:white; border-bottom:1px solid var(--border);">
+      <button class="report-back" onclick="showPage('dashboardPage')" style="font-size:24px; background:none; border:none; cursor:pointer; color:var(--text);">‹</button>
+      <div><h1 style="font-size:18px; margin:0; font-weight:bold; color:var(--text);">Keuangan Sisi Titi</h1><p style="margin:0; font-size:12px; color:var(--muted);">Laba Bersih & Pengeluaran</p></div>
+    </div>
+    <div class="report-content" style="padding:20px; padding-bottom:90px; background:#f4f7fb; min-height:100vh;">
+      
+      <div style="background:#e0f2fe; border:1px solid #7dd3fc; padding:20px; border-radius:16px; text-align:center; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+        <span style="font-size:12px; color:#0369a1; display:block; margin-bottom:8px; font-weight:bold;">LABA BERSIH (Omset Lunas - Biaya Laundry)</span>
+        <strong id="labaBersihLengkap" style="font-size:28px; color:#0369a1;">Rp 0</strong>
+      </div>
+      
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px;">
+        <div style="background:#dcfce7; border:1px solid #86efac; padding:15px; border-radius:16px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+          <span style="font-size:11px; display:block; color:#166534; font-weight:bold; margin-bottom:4px;">Total Omset Lunas</span>
+          <strong id="omsetLaundryTotal" style="font-size:16px; color:#15803d;">Rp 0</strong>
+        </div>
+        <div style="background:#fee2e2; border:1px solid #fca5a5; padding:15px; border-radius:16px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+          <span style="font-size:11px; display:block; color:#991b1b; font-weight:bold; margin-bottom:4px;">Total Pengeluaran</span>
+          <strong id="pengeluaranTotal" style="color:#dc2626; font-size:16px;">Rp 0</strong>
+        </div>
+      </div>
+
+      <h2 style="font-size:16px; margin-bottom:12px; font-weight:bold; color:var(--text);">Catat Pengeluaran</h2>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:24px;">
+        <button onclick="openInputPengeluaran('HARIAN')" style="display:flex; justify-content:space-between; align-items:center; padding:16px; background:white; border:1px solid var(--border); border-radius:12px; cursor:pointer;">
+          <span style="font-weight:bold; color:var(--text); font-size:14px;">📆 Harian</span><span id="subTotalHarian" style="color:var(--muted); font-size:14px; font-weight:bold;">Rp 0</span>
+        </button>
+        <button onclick="openInputPengeluaran('LAUNDRY')" style="display:flex; justify-content:space-between; align-items:center; padding:16px; background:white; border:1px solid var(--border); border-radius:12px; cursor:pointer;">
+          <span style="font-weight:bold; color:var(--text); font-size:14px;">🧺 Biaya Laundry</span><span id="subTotalLaundry" style="color:var(--muted); font-size:14px; font-weight:bold;">Rp 0</span>
+        </button>
+        <button onclick="openInputPengeluaran('LAIN-LAIN')" style="display:flex; justify-content:space-between; align-items:center; padding:16px; background:white; border:1px solid var(--border); border-radius:12px; cursor:pointer;">
+          <span style="font-weight:bold; color:var(--text); font-size:14px;">📚 Lain-lain</span><span id="subTotalLain" style="color:var(--muted); font-size:14px; font-weight:bold;">Rp 0</span>
+        </button>
+        <button onclick="openInputPengeluaran('TABUNGAN')" style="display:flex; justify-content:space-between; align-items:center; padding:16px; background:white; border:1px solid var(--border); border-radius:12px; cursor:pointer;">
+          <span style="font-weight:bold; color:var(--text); font-size:14px;">📔 Tabungan / Arisan</span><span id="subTotalTabungan" style="color:var(--muted); font-size:14px; font-weight:bold;">Rp 0</span>
+        </button>
+      </div>
+
+      <h2 style="font-size:16px; margin-bottom:12px; font-weight:bold; color:var(--text);">Riwayat Pengeluaran</h2>
+      <div style="background:white; border:1px solid var(--border); border-radius:16px; overflow:hidden;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left;">
+          <thead style="background:#f8fafc;"><tr style="border-bottom:1px solid var(--border);"><th style="padding:12px;">Tgl & Ket</th><th style="padding:12px; text-align:right;">Nominal</th></tr></thead>
+          <tbody id="tabelPengeluaranBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(sec);
+  
+  // Modal Input Pengeluaran
+  const modal = document.createElement("div");
+  modal.id = "modalPengeluaranFinance";
+  modal.className = "modal";
+  modal.innerHTML = `
+    <div class="modal-content" style="background: white; padding: 24px; border-radius: 20px; width: 90%; max-width: 360px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3 id="judulModalPengeluaran" style="font-size:18px; font-weight:bold; color:var(--text);">Catat Pengeluaran</h3>
+        <button type="button" onclick="closeModalPengeluaran()" style="background:none; border:none; font-size:24px; cursor:pointer; color:var(--muted);">&times;</button>
+      </div>
+      <form id="formPengeluaranFinance" onsubmit="savePengeluaran(event)">
+        <input type="hidden" id="kategoriPengeluaran">
+        <div style="margin-bottom:16px;">
+          <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:6px; color:var(--text);">Keterangan Lengkap</label>
+          <input type="text" id="descPengeluaran" placeholder="Contoh: Beli Sabun, Token Listrik" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:10px; font-size:14px; outline:none;" required>
+        </div>
+        <div style="margin-bottom:24px;">
+          <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:6px; color:var(--text);">Nominal Uang (Rp)</label>
+          <input type="number" id="nominalPengeluaran" placeholder="0" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:10px; font-size:14px; outline:none;" required>
+        </div>
+        <button type="submit" style="width:100%; background:var(--primary); color:white; padding:14px; border-radius:10px; font-weight:bold; border:none; font-size:15px; cursor:pointer;">Simpan Data</button>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(modal);
+};
+
+window.openInputPengeluaran = function(kategori) {
+  document.getElementById("kategoriPengeluaran").value = kategori;
+  document.getElementById("judulModalPengeluaran").textContent = `Catat: ${kategori}`;
+  document.getElementById("descPengeluaran").value = "";
+  document.getElementById("nominalPengeluaran").value = "";
+  document.getElementById("modalPengeluaranFinance").classList.add("show");
+};
+
+window.closeModalPengeluaran = function() {
+  document.getElementById("modalPengeluaranFinance").classList.remove("show");
+};
+
+window.savePengeluaran = function(e) {
+  e.preventDefault();
+  const kat = document.getElementById("kategoriPengeluaran").value;
+  const desc = document.getElementById("descPengeluaran").value;
+  const nom = parseFloat(document.getElementById("nominalPengeluaran").value) || 0;
+  
+  expensesData.push({ id: Date.now(), date: new Date().toISOString(), category: kat, desc: desc, amount: nom });
+  safeStorage.setItem("arsyExpenses", JSON.stringify(expensesData));
+  closeModalPengeluaran(); 
+  hitungKeuanganLengkap(); 
+  showToast("Pengeluaran " + kat + " disimpan!");
+};
+
+window.hapusPengeluaran = function(id) {
+  if(confirm("Yakin ingin menghapus catatan pengeluaran ini?")) {
+    expensesData = expensesData.filter(e => e.id !== id);
+    safeStorage.setItem("arsyExpenses", JSON.stringify(expensesData));
+    hitungKeuanganLengkap();
+    showToast("Catatan dihapus");
+  }
+};
+
+// 3. RUMUS PENGHITUNGAN OTOMATIS (OMSET - PENGELUARAN)
+window.hitungKeuanganLengkap = function() {
+  if(window.currentUserRole === 'kasir') return;
+  
+  // Hitung Omset HANYA dari transaksi yang Lunas / DP
+  let totalOmset = transactions
+    .filter(item => item.status !== "Batal" && (item.paymentStatus === "Lunas" || (item.paidAmount && item.paidAmount > 0)))
+    .reduce((sum, item) => sum + (item.paymentStatus === "Lunas" ? item.total : (item.paidAmount || 0)), 0);
+  
+  let totalKeluar = 0, totalLaundrySaja = 0;
+  ['HARIAN', 'LAUNDRY', 'LAIN-LAIN', 'TABUNGAN'].forEach(kat => {
+    let sumCat = expensesData.filter(e => e.category === kat).reduce((a, b) => a + b.amount, 0);
+    let idEl = (kat === 'LAIN-LAIN') ? 'subTotalLain' : `subTotal${kat.charAt(0) + kat.slice(1).toLowerCase()}`;
+    let el = document.getElementById(idEl);
+    if(el) el.textContent = formatRupiah(sumCat);
+    if (kat !== 'TABUNGAN') totalKeluar += sumCat;
+    if (kat === 'LAUNDRY') totalLaundrySaja = sumCat;
+  });
+
+  if(document.getElementById("omsetLaundryTotal")) document.getElementById("omsetLaundryTotal").textContent = formatRupiah(totalOmset);
+  if(document.getElementById("pengeluaranTotal")) document.getElementById("pengeluaranTotal").textContent = formatRupiah(totalKeluar);
+  if(document.getElementById("labaBersihLengkap")) document.getElementById("labaBersihLengkap").textContent = formatRupiah(totalOmset - totalLaundrySaja);
+  
+  const tbody = document.getElementById("tabelPengeluaranBody");
+  if(tbody) {
+    tbody.innerHTML = expensesData.sort((a,b) => new Date(b.date) - new Date(a.date)).map(e => `
+      <tr>
+        <td style="padding:12px; border-bottom:1px solid var(--border);">
+          <strong style="display:block; font-size:13px; color:var(--text);">${e.category}</strong>
+          <span style="display:block; font-size:11px; color:var(--muted);">${formatDate(e.date).split(' ')[0]} - ${escapeHTML(e.desc)}</span>
+        </td>
+        <td style="padding:12px; border-bottom:1px solid var(--border); text-align:right;">
+          <strong style="display:block; font-size:13px; color:#dc2626;">${formatRupiah(e.amount)}</strong>
+          <button onclick="hapusPengeluaran(${e.id})" style="background:none; border:none; color:var(--muted); font-size:11px; text-decoration:underline; cursor:pointer; margin-top:4px;">Hapus</button>
+        </td>
+      </tr>
+    `).join("");
+    if(expensesData.length === 0) {
+       tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; padding:20px; color:var(--muted); font-size:12px;">Belum ada catatan pengeluaran</td></tr>`;
+    }
+  }
+};
+
+
+// 4. MENGHUBUNGKAN KODE PLUGIN DENGAN SISTEM ASLI ARSY LAUNDRY (Bypass & Intercept)
+const _originalShowPage = window.showPage;
+window.showPage = function(pageId) {
+  if (window.currentUserRole === 'kasir' && (pageId === 'reportsPage' || pageId === 'keuanganPage')) { 
+    return showToast("Akses ditolak: Hanya untuk Pemilik (Admin)."); 
+  }
+  if (typeof _originalShowPage === 'function') {
+     _originalShowPage(pageId);
+  } else {
+     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+     const target = document.getElementById(pageId);
+     if (target) target.classList.add("active");
+     window.scrollTo(0, 0);
+  }
+  if (pageId === 'keuanganPage') hitungKeuanganLengkap();
+};
+
+const _originalRenderAll = window.renderAll;
+window.renderAll = function() {
+  if(typeof _originalRenderAll === 'function') _originalRenderAll();
+  if(typeof hitungKeuanganLengkap === 'function') hitungKeuanganLengkap();
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+  injectKeuanganPageHTML();
+  
+  // Mencari Banner Keuangan di Dashboard dan menghubungkannya
+  setTimeout(() => {
+    const cards = document.querySelectorAll(".welcome-card");
+    cards.forEach(c => {
+      if(c.textContent.includes("Keuangan") || c.textContent.includes("Laba") || c.textContent.includes("Pengeluaran")) {
+        c.classList.add("admin-only");
+        c.style.cursor = "pointer";
+        c.onclick = function(e) {
+          e.preventDefault();
+          showPage('keuanganPage');
+        };
+      }
+    });
+
+    // Menambahkan Tombol Logout di Akun Page
+    const akunPage = document.getElementById("akunPage");
+    if(akunPage && !akunPage.innerHTML.includes("logout()")) {
+       const div = document.createElement("div");
+       div.style.padding = "15px";
+       div.innerHTML = `<button onclick="logout()" class="submit-button" style="background:#fee2e2; color:#dc2626; width:100%; padding:12px; border-radius:10px; font-weight:bold; border:none; cursor:pointer;">Keluar (Logout)</button>`;
+       akunPage.appendChild(div);
+    }
+    
+    applyRoleRestrictions();
+  }, 600);
+});
