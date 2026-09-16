@@ -1,707 +1,349 @@
-/* ================= 1. KONFIGURASI & STATE ================= */
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyGhQ-tJytCoEQGz2whhSP8ML2L632IYVy9y2Jeb0117SgDCv-rYy1-uzWxFFJpMjbctA/exec";
 
-// Default Data Induk
 let appData = {
-  transactions: [],
-  finances: [],
-  notes: [],
+  transactions: [], finances: [], notes: [],
   users: [{ id: 1, name: "Pemilik", username: "admin", password: "123", role: "Admin" }],
   outlet: { name: "", address: "", phone: "" },
-  calcDocs: [{ id: 1, title: 'Perhitungan(1)', rows: [] }]
+  calcDocs: [{ id: 1, title: 'Perhitungan(1)', rows: [] }],
+  services: {
+    "Cuci Kering": { price: 5000, unit: "kg" },
+    "Cuci Setrika": { price: 10000, unit: "kg" },
+    "Bed Cover": { price: 25000, unit: "pcs" }
+  }
 };
 
 let currentUser = null;
-let currentCalcDocId = 1;
-let calcInput = "0";
-let calcActiveOp = "+";
+let activeNewTransactionItems = [];
+let calcInput = "0"; let calcActiveOp = "+";
 
-/* ================= 2. INISIALISASI AWAL ================= */
 document.addEventListener("DOMContentLoaded", () => {
   const savedData = localStorage.getItem("appDataTerpadu");
-  if (savedData) {
-    appData = JSON.parse(savedData);
-  }
-  
-  // Cek apakah ada sesi login tersimpan
+  if (savedData) { try { appData = JSON.parse(savedData); } catch(e){} }
   const savedSession = localStorage.getItem("activeSession");
-  if (savedSession) {
-    currentUser = JSON.parse(savedSession);
+  if (savedSession) { try { currentUser = JSON.parse(savedSession); } catch(e){} }
+
+  if (currentUser) {
     document.getElementById("loginScreen").style.display = "none";
     document.getElementById("mainApp").style.display = "block";
     initApp();
-  } else {
-    refreshOutletUI();
-  }
+  } else { refreshOutletUI(); }
 });
 
 function initApp() {
-  refreshOutletUI();
-  updateUIDasar();
-  renderDashboardLaundry();
-  calculateFinance();
-  renderNotesList();
-  renderKaryawanList();
-  loadCalcDoc();
-  syncFromCloud(); // Tarik data terbaru dari Cloud di latar belakang
+  refreshOutletUI(); updateUIDasar(); renderDashboardLaundry();
+  calculateFinance(); renderNotesList(); renderKaryawanList(); renderServices();
+  loadCalcDoc(); syncFromCloud();
   
-  // Set filter bulan default (Bulan Ini)
   const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  document.getElementById("homeMonthFilter").value = `${yyyy}-${mm}`;
+  document.getElementById("homeMonthFilter").value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  
+  // Setup Dropdown Form Transaksi
+  const srvSelect = document.getElementById("trxServiceSelect");
+  if(srvSelect) {
+    srvSelect.innerHTML = Object.keys(appData.services).map(s => `<option value="${s}">${s} - Rp${appData.services[s].price}/${appData.services[s].unit}</option>`).join("");
+  }
 }
-
-/* ================= 3. FUNGSI SINKRONISASI CLOUD ================= */
 async function syncFromCloud() {
   try {
     const res = await fetch(WEB_APP_URL);
     const data = await res.json();
-    if (data && data.users) { // Validasi sederhana
-      appData = data;
+    if (data && data.users) {
+      appData = data; if(!appData.services) appData.services = {};
       localStorage.setItem("appDataTerpadu", JSON.stringify(appData));
-      updateUIDasar();
-      renderDashboardLaundry();
-      calculateFinance();
+      initApp(); // Refresh all UI
     }
-  } catch (err) {
-    console.log("Sinkronisasi latar belakang gagal atau offline.");
-  }
+  } catch (err) { console.log("Offline mode."); }
 }
 
 async function saveToCloud() {
   localStorage.setItem("appDataTerpadu", JSON.stringify(appData));
-  showLoading();
+  document.getElementById("loadingModal").style.display = "flex";
   try {
     await fetch(WEB_APP_URL, {
-      method: "POST",
-      mode: "no-cors",
+      method: "POST", mode: "no-cors",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: "data=" + encodeURIComponent(JSON.stringify(appData))
     });
-    hideLoading();
+    document.getElementById("loadingModal").style.display = "none";
   } catch (err) {
-    hideLoading();
-    showToast("Disimpan offline. Akan disinkronkan saat online.");
+    document.getElementById("loadingModal").style.display = "none";
+    showToast("Tersimpan secara lokal (Offline)");
   }
 }
 
-/* ================= 4. AUTH (LOGIN / LOGOUT) & NAVIGASI ================= */
 function prosesLogin() {
   const userIn = document.getElementById("loginUsername").value.trim();
   const passIn = document.getElementById("loginPassword").value;
-  
   const user = appData.users.find(u => u.username === userIn && u.password === passIn);
-  
   if (user) {
-    currentUser = user;
-    localStorage.setItem("activeSession", JSON.stringify(user));
+    currentUser = user; localStorage.setItem("activeSession", JSON.stringify(user));
     document.getElementById("loginScreen").style.display = "none";
     document.getElementById("mainApp").style.display = "block";
-    showToast(`Selamat datang, ${user.name}!`);
-    initApp();
-  } else {
-    showToast("Username atau Password salah!");
-  }
+    showToast(`Halo, ${user.name}!`); initApp();
+  } else { showToast("Username/Password salah!"); }
 }
 
-function prosesLogout() {
-  if(confirm("Anda yakin ingin keluar?")) {
-    currentUser = null;
-    localStorage.removeItem("activeSession");
-    location.reload();
-  }
-}
+function prosesLogout() { if(confirm("Keluar dari aplikasi?")) { localStorage.removeItem("activeSession"); location.reload(); } }
 
 function updateUIDasar() {
-  // Sembunyikan fitur admin jika yang login adalah Karyawan biasa
-  const adminElements = document.querySelectorAll(".admin-only");
-  adminElements.forEach(el => {
-    el.style.display = (currentUser && currentUser.role === "Admin") ? "flex" : "none";
-  });
-  
-  // Tampilkan inisial profil
+  document.querySelectorAll(".admin-only").forEach(el => el.style.display = (currentUser && currentUser.role === "Admin") ? "flex" : "none");
   if (currentUser) {
-    const initial = currentUser.name.charAt(0).toUpperCase();
-    document.getElementById("headerProfileIcon").textContent = initial;
-    document.getElementById("bigProfileIcon").textContent = initial;
+    let ini = currentUser.name.charAt(0).toUpperCase();
+    document.getElementById("headerProfileIcon").textContent = ini;
+    document.getElementById("bigProfileIcon").textContent = ini;
   }
 }
 
 function showPage(pageId) {
-  // Blokir akses karyawan ke halaman keuangan
-  if (currentUser && currentUser.role !== "Admin" && (pageId === "financePage" || pageId === "financeReportPage")) {
-    showToast("Akses Ditolak! Hanya Admin yang bisa melihat Keuangan.");
-    return;
+  if (currentUser && currentUser.role !== "Admin" && (pageId === "financePage" || pageId === "financeReportPage" || pageId === "reportsPage")) {
+    return showToast("Khusus Admin.");
   }
-
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   document.getElementById(pageId).classList.add("active");
-
   document.querySelectorAll(".nav-button[data-page]").forEach(btn => {
-    btn.classList.remove("active");
-    if (btn.dataset.page === pageId) btn.classList.add("active");
+    btn.classList.remove("active"); if (btn.dataset.page === pageId) btn.classList.add("active");
   });
   window.scrollTo(0, 0);
-  
   if(pageId === 'dashboardPage') renderDashboardLaundry();
-  if(pageId === 'financePage') calculateFinance();
+  if(pageId === 'transactionsPage') renderAllTransactions();
 }
-
-/* ================= 5. FUNGSI UTILITAS ================= */
 function formatRupiah(num) { return "Rp " + Number(num).toLocaleString("id-ID"); }
-function showToast(msg) {
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 3000);
-}
-function showLoading() { document.getElementById("loadingModal").style.display = "flex"; }
-function hideLoading() { document.getElementById("loadingModal").style.display = "none"; }
-function closeAllModals() { document.querySelectorAll(".modal-overlay").forEach(m => m.style.display = "none"); }
-/* ================= 6. LOGIKA LAUNDRY ================= */
+function showToast(msg) { let t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 3000); }
+
+/* DASHBOARD */
 function renderDashboardLaundry() {
   const today = new Date().toISOString().split('T')[0];
-  let todayIncome = 0;
-  let todayTrx = 0;
-  let pendingCount = 0;
-  
+  let income = 0, trx = 0, pending = 0;
   appData.transactions.forEach(t => {
-    if (t.date.startsWith(today)) todayTrx++;
-    if (t.status === 'Selesai' && t.date.startsWith(today)) todayIncome += Number(t.total);
-    if (t.status !== 'Selesai' && t.status !== 'Batal') pendingCount++;
+    if (t.date.startsWith(today) && t.status !== 'Batal') trx++;
+    if (t.status === 'Selesai' && t.date.startsWith(today)) income += Number(t.total);
+    if (t.status !== 'Selesai' && t.status !== 'Batal') pending++;
   });
-  
-  document.getElementById("todayIncome").textContent = formatRupiah(todayIncome);
-  document.getElementById("todayTransactions").textContent = todayTrx;
-  document.getElementById("pendingTransactions").textContent = pendingCount;
-  
-  // Ambil total pelanggan unik
-  const uniqueCust = new Set(appData.transactions.map(t => t.customerName.toLowerCase()));
-  document.getElementById("totalCustomers").textContent = uniqueCust.size;
+  document.getElementById("todayIncome").textContent = formatRupiah(income);
+  document.getElementById("todayTransactions").textContent = trx;
+  document.getElementById("pendingTransactions").textContent = pending;
+  document.getElementById("totalCustomers").textContent = new Set(appData.transactions.map(t => t.customerName.toLowerCase())).size;
 }
 
-// Fitur transaksi baru (Simulasi Sederhana untuk Kasir)
-function openTransactionModal() {
-  // Dalam versi nyata, ini akan membuka form lengkap
-  const nama = prompt("Nama Pelanggan:");
-  if(!nama) return;
-  const layanan = prompt("Layanan (cth: Cuci Kering):", "Cuci Komplit");
-  const nominal = prompt("Total Harga (Rp):", "15000");
-  
-  if (nama && nominal) {
-    const newTrx = {
-      id: Date.now(),
-      date: new Date().toISOString(),
-      customerName: nama,
-      service: layanan,
-      total: Number(nominal),
-      status: "Antrian",
-      cashier: currentUser ? currentUser.name : "System"
-    };
-    appData.transactions.unshift(newTrx);
-    saveToCloud();
-    renderDashboardLaundry();
-    showToast("Transaksi berhasil disimpan oleh " + newTrx.cashier);
-  }
+/* LAYANAN (DENGAN FORM ASLI) */
+function renderServices() {
+  const c = document.getElementById("servicesList"); if (!c) return;
+  const keys = Object.keys(appData.services);
+  if (keys.length === 0) { c.innerHTML = `<p style="text-align:center; color:#888;">Belum ada layanan</p>`; return; }
+  c.innerHTML = keys.map(k => {
+    let s = appData.services[k];
+    return `<div style="background:#fff; border:1px solid #ddd; padding:12px; border-radius:10px; margin-bottom:8px; display:flex; justify-content:space-between;">
+      <div><b>${k}</b><p style="font-size:0.8rem; color:#666;">${formatRupiah(s.price)} / ${s.unit}</p></div>
+      <button class="btn-danger-small" onclick="hapusLayanan('${k}')">Hapus</button>
+    </div>`;
+  }).join("");
 }
-
-/* ================= 7. LOGIKA KEUANGAN PRIBADI & LABA BERSIH ================= */
-function openExpenseModal(cat) {
-  document.getElementById("expenseCategory").value = cat;
-  document.getElementById("expenseModalTitle").textContent = `Catat: ${cat}`;
-  document.getElementById("expenseDate").value = new Date().toISOString().split('T')[0];
-  document.getElementById("expenseModal").style.display = "flex";
-}
-function closeExpenseModal() { document.getElementById("expenseModal").style.display = "none"; document.getElementById("expenseForm").reset(); }
-
-document.getElementById("expenseForm").addEventListener("submit", (e) => {
+function openServiceModal() { document.getElementById("addServiceModal").style.display = "flex"; }
+function closeAddServiceModal() { document.getElementById("addServiceModal").style.display = "none"; document.getElementById("addServiceForm").reset(); }
+function saveNewService(e) {
   e.preventDefault();
-  const newExp = {
-    id: Date.now(),
-    date: document.getElementById("expenseDate").value,
-    category: document.getElementById("expenseCategory").value,
-    desc: document.getElementById("expenseDesc").value,
-    amount: Number(document.getElementById("expenseAmount").value)
-  };
-  appData.finances.unshift(newExp);
-  saveToCloud();
-  closeExpenseModal();
-  calculateFinance();
-  showToast("Pengeluaran dicatat");
-});
-
-function calculateFinance() {
-  const selectedMonth = document.getElementById("homeMonthFilter").value;
-  const categories = ['HARIAN', 'LAIN2', 'LAUNDRY', 'TABUNGAN / ARISAN'];
-  let totalPengeluaran = 0;
-  
-  // Hitung Pengeluaran
-  categories.forEach(cat => {
-    const sum = appData.finances.filter(f => {
-      const matchMonth = selectedMonth ? f.date.startsWith(selectedMonth) : true;
-      return matchMonth && f.category === cat;
-    }).reduce((acc, curr) => acc + curr.amount, 0);
-    
-    document.getElementById(`sub-${cat}`).textContent = formatRupiah(sum);
-    if(cat !== 'TABUNGAN / ARISAN') totalPengeluaran += sum;
-  });
-  
-  document.getElementById("totalPengeluaran").textContent = formatRupiah(totalPengeluaran);
-  
-  // Hitung Laba Bersih Laundry (Omzet Laundry - Biaya Laundry)
-  // Omzet = Semua transaksi Laundry
-  const omzetLaundry = appData.transactions.filter(t => {
-    return selectedMonth ? t.date.startsWith(selectedMonth) : true;
-  }).reduce((acc, curr) => acc + curr.total, 0);
-  
-  const biayaLaundry = appData.finances.filter(f => f.category === 'LAUNDRY' && (selectedMonth ? f.date.startsWith(selectedMonth) : true)).reduce((acc, curr) => acc + curr.amount, 0);
-  
-  const labaBersih = omzetLaundry - biayaLaundry;
-  document.getElementById("labaBersihLaundry").textContent = formatRupiah(labaBersih);
-  
-  renderFinanceTable(selectedMonth);
+  const name = document.getElementById("newSrvName").value;
+  appData.services[name] = { price: Number(document.getElementById("newSrvPrice").value), unit: document.getElementById("newSrvUnit").value };
+  saveToCloud(); closeAddServiceModal(); renderServices(); showToast("Layanan disimpan");
+  initApp(); // Refresh dropdown
 }
-
-function renderFinanceTable(month) {
-  const filterCat = document.getElementById("dataFilterFinance") ? document.getElementById("dataFilterFinance").value : 'ALL';
-  const tbody = document.getElementById("tableBodyFinance");
-  if(!tbody) return;
-  tbody.innerHTML = "";
-  
-  const filtered = appData.finances.filter(f => {
-    const matchMonth = month ? f.date.startsWith(month) : true;
-    const matchCat = filterCat === 'ALL' ? true : f.category === filterCat;
-    return matchMonth && matchCat;
-  });
-  
-  filtered.forEach(f => {
-    tbody.innerHTML += `
-      <tr>
-        <td>${f.date.substring(5)}</td>
-        <td><b>${f.category}</b></td>
-        <td>${f.desc}</td>
-        <td style="color:var(--red); font-weight:bold;">${formatRupiah(f.amount)}</td>
-        <td><button class="btn-danger-small" onclick="deleteFinance(${f.id})">✕</button></td>
-      </tr>
-    `;
-  });
-}
-
-function deleteFinance(id) {
-  if(confirm("Hapus catatan keuangan ini?")) {
-    appData.finances = appData.finances.filter(f => f.id !== id);
-    saveToCloud();
-    calculateFinance();
-  }
-}
-/* ================= 8. LOGIKA DIARI / CATATAN (DENGAN WAKTU) ================= */
-function openNotesModal() {
-  document.getElementById("notesModal").style.display = "flex";
-  renderNotesList();
-}
-function closeNotesModal() { document.getElementById("notesModal").style.display = "none"; }
-function openAddNoteForm() {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  document.getElementById("noteDateTime").value = now.toISOString().slice(0, 16);
-  document.getElementById("addNoteModal").style.display = "flex";
-}
-function closeAddNoteForm() { document.getElementById("addNoteModal").style.display = "none"; document.getElementById("noteForm").reset(); }
-
-document.getElementById("noteForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const dt = document.getElementById("noteDateTime").value;
-  const content = document.getElementById("noteContent").value;
-  appData.notes.unshift({ id: Date.now(), datetime: dt, content: content });
-  saveToCloud();
-  closeAddNoteForm();
-  renderNotesList();
-  showToast("Catatan Diari disimpan");
-});
-
-function renderNotesList() {
-  const c = document.getElementById("notesListContainer");
-  c.innerHTML = "";
-  document.getElementById("sub-CATATAN").textContent = `${appData.notes.length} Catatan`;
-  
-  appData.notes.forEach(n => {
-    const dateObj = new Date(n.datetime);
-    const dateStr = dateObj.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
-    c.innerHTML += `
-      <div style="background:#f8fafc; border:1px solid #bae6fd; border-radius:10px; padding:12px; margin-bottom:10px;">
-        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-          <small style="color:var(--primary); font-weight:bold;">${dateStr}</small>
-          <button class="btn-danger-small" onclick="deleteNote(${n.id})">Hapus</button>
-        </div>
-        <p style="font-size:0.9rem;">${n.content}</p>
-      </div>
-    `;
-  });
-}
-function deleteNote(id) { if(confirm("Hapus catatan ini?")){ appData.notes = appData.notes.filter(n=>n.id!==id); saveToCloud(); renderNotesList(); } }
-
-
-/* ================= 9. PENGATURAN USAHA (WHITE-LABEL) & KARYAWAN ================= */
-function refreshOutletUI() {
-  const name = appData.outlet.name || "Aplikasi Terpadu";
-  document.getElementById("loginOutletName").textContent = name;
-  document.getElementById("headerOutletName").textContent = name;
-  if(document.getElementById("dispOutletName")) {
-    document.getElementById("dispOutletName").textContent = name;
-    document.getElementById("dispOutletAddress").textContent = appData.outlet.address || "Alamat belum diatur";
-    document.getElementById("dispOutletPhone").textContent = appData.outlet.phone || "-";
-  }
-}
-function openOutletModal() {
-  document.getElementById("inputOutletName").value = appData.outlet.name;
-  document.getElementById("inputOutletPhone").value = appData.outlet.phone;
-  document.getElementById("inputOutletAddress").value = appData.outlet.address;
-  document.getElementById("outletModal").style.display = "flex";
-}
-function closeOutletModal() { document.getElementById("outletModal").style.display = "none"; }
-document.getElementById("outletForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  appData.outlet.name = document.getElementById("inputOutletName").value;
-  appData.outlet.phone = document.getElementById("inputOutletPhone").value;
-  appData.outlet.address = document.getElementById("inputOutletAddress").value;
-  saveToCloud();
-  refreshOutletUI();
-  closeOutletModal();
-  showToast("Profil Usaha Diperbarui");
-});
-
-// Karyawan
-function renderKaryawanList() {
-  const c = document.getElementById("karyawanList");
-  if(!c) return;
-  c.innerHTML = "";
-  appData.users.forEach(u => {
-    c.innerHTML += `
-      <div style="background:#fff; border:1px solid var(--border); padding:12px; border-radius:10px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-        <div>
-          <b>${u.name}</b> <span style="font-size:0.7rem; background:var(--pastel-blue); color:var(--primary); padding:2px 6px; border-radius:4px;">${u.role}</span>
-          <p style="font-size:0.8rem; color:var(--text-muted);">Username: ${u.username}</p>
-        </div>
-        <button class="btn-danger-small" onclick="deleteKaryawan(${u.id})">Hapus</button>
-      </div>
-    `;
-  });
-}
-function openKaryawanModal() { document.getElementById("karyawanModal").style.display = "flex"; }
-function closeKaryawanModal() { document.getElementById("karyawanModal").style.display = "none"; document.getElementById("karyawanForm").reset(); }
-document.getElementById("karyawanForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const name = document.getElementById("inputKarName").value;
-  const user = document.getElementById("inputKarUser").value;
-  const pass = document.getElementById("inputKarPass").value;
-  const role = document.getElementById("inputKarRole").value;
-  
-  if(appData.users.find(u => u.username === user)) return showToast("Username sudah dipakai!");
-  
-  appData.users.push({ id: Date.now(), name, username: user, password: pass, role });
-  saveToCloud();
-  closeKaryawanModal();
-  renderKaryawanList();
-  showToast("Akun Karyawan Ditambahkan");
-});
-function deleteKaryawan(id) {
-  if(appData.users.length <= 1) return showToast("Minimal harus ada 1 akun!");
-  if(confirm("Hapus akun ini?")) { appData.users = appData.users.filter(u=>u.id!==id); saveToCloud(); renderKaryawanList(); }
-}
-
-/* ================= 10. KALKULATOR ================= */
-function getCalcDoc() { return appData.calcDocs.find(d => d.id === currentCalcDocId) || appData.calcDocs[0]; }
-function loadCalcDoc() { updateCalcScreen(); }
-function updateCalcScreen() {
-  document.getElementById("calcScreen").value = Number(calcInput).toLocaleString('id-ID');
-  document.getElementById("activeOpSymbol").textContent = calcActiveOp;
-}
-function calcAppendNum(num) {
-  if(calcInput === "0" && num !== ".") calcInput = num;
-  else { if(num==="." && calcInput.includes(".")) return; calcInput += num; }
-  updateCalcScreen();
-}
-function calcBackSpace() { calcInput = calcInput.length > 1 ? calcInput.slice(0,-1) : "0"; updateCalcScreen(); }
-function calcClear() { getCalcDoc().rows = []; calcInput = "0"; calcActiveOp = "+"; saveToCloud(); updateCalcScreen(); renderCalcRows(); }
-function calcAddOp(op) {
-  const val = parseFloat(calcInput);
-  if(!isNaN(val) && (val !== 0 || calcInput !== "0")) {
-    getCalcDoc().rows.push({ op: calcActiveOp, val }); calcInput = "0"; saveToCloud();
-  }
-  calcActiveOp = op; renderCalcRows(); updateCalcScreen();
-}
-function calcEquals() {
-  const val = parseFloat(calcInput);
-  if(!isNaN(val) && (val !== 0 || calcInput !== "0")) {
-    getCalcDoc().rows.push({ op: calcActiveOp, val }); calcInput = "0";
-  }
-  getCalcDoc().rows.push({ isResult: true }); calcInput = "0"; calcActiveOp = "+"; saveToCloud(); renderCalcRows(); updateCalcScreen();
-}
-function renderCalcRows() {
-  const c = document.getElementById("calcRowsContainer");
-  if(!c) return; c.innerHTML = "";
-  let total = 0;
-  getCalcDoc().rows.forEach(r => {
-    if(r.isResult) {
-      c.innerHTML += `<div style="text-align:right; color:var(--primary); font-weight:bold; border-top:2px solid var(--border); padding-top:5px;">= ${total.toLocaleString('id-ID')}</div><br>`; total = 0;
-    } else {
-      if(r.op==='+') total+=r.val; else if(r.op==='-') total-=r.val; else if(r.op==='×') total*=r.val; else if(r.op==='÷') total/=r.val;
-      c.innerHTML += `<div style="display:flex; justify-content:space-between; color:var(--text-muted); font-size:0.9rem;"><span>${r.op}</span><span>${r.val.toLocaleString('id-ID')}</span></div>`;
-    }
-  });
-  c.scrollTop = c.scrollHeight;
-}
-/* ================= LOGIKA UTAMA LAUNDRY (DIPERBARUI) ================= */
-
-// Daftar Layanan Bawaan Arsy Laundry (Bisa ditambah/ubah di menu Layanan)
-if (!appData.services || Object.keys(appData.services).length === 0) {
-  appData.services = {
-    "Cuci Kering": { price: 5000, unit: "kg", duration: "3 Hari" },
-    "Cuci Setrika": { price: 10000, unit: "kg", duration: "1 Hari" },
-    "Bed Cover": { price: 25000, unit: "pcs", duration: "1 Hari" },
-    "Setrika Express": { price: 6000, unit: "kg", duration: "4 Jam" }
-  };
-}
-
-let activeNewTransactionItems = [];
-
-// Buka Modal Transaksi Baru
+function hapusLayanan(name) { if(confirm("Hapus "+name+"?")) { delete appData.services[name]; saveToCloud(); renderServices(); initApp(); } }
+/* TRANSAKSI BARU (FORM PENUH) */
 function openTransactionModal() {
   activeNewTransactionItems = [];
+  document.getElementById("fullTransactionForm").reset();
   renderActiveTransactionItems();
-  
-  // Pastikan modal transaksi ada atau buat tampilannya
-  let modal = document.getElementById("transactionModalFull");
-  if (!modal) {
-    modal = document.createElement("div");
-    modal.id = "transactionModalFull";
-    modal.className = "modal-overlay";
-    modal.innerHTML = `
-      <div class="modal-box" style="max-width: 450px; max-height: 90vh; overflow-y: auto;">
-        <div class="modal-header">
-          <h3>Transaksi Baru Laundry</h3>
-          <button onclick="closeFullTransactionModal()" class="btn-close">✕</button>
-        </div>
-        <form id="fullTransactionForm" onsubmit="saveFullTransaction(event)">
-          <div class="form-group">
-            <label>Nama Pelanggan</label>
-            <input type="text" id="trxCustomerName" placeholder="Contoh: Budi" required autocomplete="off">
-          </div>
-          
-          <div class="form-group">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-              <label style="margin:0;">Pilihan Layanan</label>
-              <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="promptAddServiceToTrx()">+ Pilih Layanan</button>
-            </div>
-            <div id="trxItemsContainer" style="background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:10px; min-height:60px;">
-              <span style="color:var(--text-muted); font-size:0.8rem;">Belum ada layanan dipilih</span>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Status Awal</label>
-            <select id="trxStatus">
-              <option value="Antrian">Antrian</option>
-              <option value="Proses">Proses</option>
-              <option value="Siap Diambil">Siap Diambil</option>
-              <option value="Selesai">Selesai</option>
-            </select>
-          </div>
-
-          <div style="background:#f0f9ff; padding:12px; border-radius:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-weight:bold; font-size:0.9rem;">Total Tagihan:</span>
-            <b id="trxGrandTotalDisplay" style="color:var(--primary); font-size:1.1rem;">Rp 0</b>
-          </div>
-
-          <div class="modal-buttons">
-            <button type="button" class="btn-secondary" onclick="closeFullTransactionModal()">Batal</button>
-            <button type="submit" class="btn-primary">Simpan Transaksi</button>
-          </div>
-        </form>
-      </div>
-    `;
-    document.body.appendChild(modal);
-  }
-  modal.style.display = "flex";
+  document.getElementById("transactionModalFull").style.display = "flex";
 }
+function closeFullTransactionModal() { document.getElementById("transactionModalFull").style.display = "none"; }
 
-function closeFullTransactionModal() {
-  const modal = document.getElementById("transactionModalFull");
-  if(modal) modal.style.display = "none";
-}
-
-function promptAddServiceToTrx() {
-  const serviceNames = Object.keys(appData.services);
-  let choice = prompt("Pilih Layanan:\n" + serviceNames.map((s, i) => `${i+1}. ${s} (Rp ${appData.services[s].price}/${appData.services[s].unit})`).join("\n") + "\n\nKetik nomor layanan:");
+function addServiceToCart() {
+  let srvName = document.getElementById("trxServiceSelect").value;
+  let qty = parseFloat(document.getElementById("trxServiceQty").value) || 1;
+  if(!srvName) return showToast("Buat layanan dulu di menu Layanan!");
   
-  let idx = parseInt(choice) - 1;
-  if (!isNaN(idx) && serviceNames[idx]) {
-    let srvName = serviceNames[idx];
-    let srv = appData.services[srvName];
-    activeNewTransactionItems.push({
-      serviceType: srvName,
-      weight: 1,
-      total: srv.price
-    });
-    renderActiveTransactionItems();
-  }
+  let srv = appData.services[srvName];
+  activeNewTransactionItems.push({ name: srvName, qty: qty, price: srv.price, total: srv.price * qty, unit: srv.unit });
+  renderActiveTransactionItems();
 }
 
 function renderActiveTransactionItems() {
-  const container = document.getElementById("trxItemsContainer");
-  const totalDisplay = document.getElementById("trxGrandTotalDisplay");
-  if(!container) return;
-
-  if(activeNewTransactionItems.length === 0) {
-    container.innerHTML = `<span style="color:var(--text-muted); font-size:0.8rem;">Belum ada layanan dipilih</span>`;
-    if(totalDisplay) totalDisplay.textContent = formatRupiah(0);
-    return;
+  const c = document.getElementById("trxItemsContainer");
+  let grand = 0;
+  if(activeNewTransactionItems.length === 0) { c.innerHTML = "<small color='#888'>Belum ada cucian ditambahkan.</small>"; } 
+  else {
+    c.innerHTML = activeNewTransactionItems.map((it, i) => {
+      grand += it.total;
+      return `<div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:0.85rem; border-bottom:1px dashed #ccc; padding-bottom:5px;">
+        <span><b>${it.name}</b> (${it.qty} ${it.unit})</span>
+        <span>${formatRupiah(it.total)} <span style="color:red; margin-left:5px; cursor:pointer;" onclick="activeNewTransactionItems.splice(${i},1);renderActiveTransactionItems();">✕</span></span>
+      </div>`;
+    }).join("");
   }
-
-  let grandTotal = 0;
-  container.innerHTML = activeNewTransactionItems.map((item, idx) => {
-    grandTotal += item.total;
-    let srv = appData.services[item.serviceType] || { unit: 'kg' };
-    return `
-      <div style="background:#fff; border:1px solid var(--border); border-radius:8px; padding:8px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-        <div>
-          <b style="font-size:0.85rem; color:var(--primary);">${item.serviceType}</b>
-          <div style="display:flex; align-items:center; gap:5px; margin-top:4px;">
-            <input type="number" step="any" value="${item.weight}" style="width:60px; padding:4px; text-align:center; font-size:0.8rem;" oninput="updateTrxWeight(${idx}, this.value)">
-            <span style="font-size:0.75rem; color:var(--text-muted);">${srv.unit}</span>
-          </div>
-        </div>
-        <div style="text-align:right;">
-          <b style="font-size:0.85rem;" id="trxItemTotal_${idx}">${formatRupiah(item.total)}</b>
-          <br><button type="button" onclick="removeTrxItem(${idx})" style="color:var(--red); background:none; border:none; font-size:0.75rem; cursor:pointer;">Hapus</button>
-        </div>
-      </div>
-    `;
-  }).join("");
-
-  if(totalDisplay) totalDisplay.textContent = formatRupiah(grandTotal);
-}
-
-function updateTrxWeight(idx, val) {
-  let w = parseFloat(val) || 0;
-  let item = activeNewTransactionItems[idx];
-  let srv = appData.services[item.serviceType];
-  item.weight = w;
-  item.total = Math.round(w * srv.price);
-  
-  document.getElementById(`trxItemTotal_${idx}`).textContent = formatRupiah(item.total);
-  
-  let grandTotal = activeNewTransactionItems.reduce((sum, it) => sum + it.total, 0);
-  document.getElementById("trxGrandTotalDisplay").textContent = formatRupiah(grandTotal);
-}
-
-function removeTrxItem(idx) {
-  activeNewTransactionItems.splice(idx, 1);
-  renderActiveTransactionItems();
+  document.getElementById("trxGrandTotalDisplay").textContent = formatRupiah(grand);
 }
 
 function saveFullTransaction(e) {
   e.preventDefault();
-  const name = document.getElementById("trxCustomerName").value.trim();
-  const status = document.getElementById("trxStatus").value;
+  const cust = document.getElementById("trxCustomerName").value;
+  if(activeNewTransactionItems.length === 0) return showToast("Tambahkan minimal 1 layanan!");
   
-  if(!name || activeNewTransactionItems.length === 0) {
-    showToast("Lengkapi nama dan minimal 1 layanan!");
-    return;
-  }
-
-  let grandTotal = activeNewTransactionItems.reduce((sum, it) => sum + it.total, 0);
-
   const newTrx = {
-    id: Date.now(),
-    date: new Date().toISOString(),
-    customerName: name,
-    items: JSON.parse(JSON.stringify(activeNewTransactionItems)),
-    total: grandTotal,
-    status: status,
-    paymentStatus: "Belum Lunas",
-    paidAmount: 0,
-    cashier: currentUser ? currentUser.name : "Admin"
+    id: Date.now(), date: new Date().toISOString(), customerName: cust,
+    items: [...activeNewTransactionItems],
+    total: activeNewTransactionItems.reduce((sum, it) => sum + it.total, 0),
+    paymentStatus: document.getElementById("trxPaymentStatus").value,
+    status: "Antrian", cashier: currentUser.name
   };
-
+  
   appData.transactions.unshift(newTrx);
-  saveToCloud();
-  closeFullTransactionModal();
-  renderDashboardLaundry();
-  renderAllTransactions();
-  calculateFinance();
-  showToast("Transaksi Laundry Berhasil Disimpan!");
+  saveToCloud(); closeFullTransactionModal(); renderDashboardLaundry(); renderAllTransactions(); calculateFinance();
+  showToast("Transaksi Berhasil Dibuat!");
 }
-
-/* Tampilkan Daftar Transaksi di Tab Laundry */
+/* DAFTAR TRANSAKSI & UBAH STATUS (SEPERTI ARSY LAUNDRY) */
 let currentTrxFilter = 'Antrian';
 function filterTransactionsTab(status, btn) {
   currentTrxFilter = status;
-  document.querySelectorAll('.trans-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  document.querySelectorAll('.trans-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active');
   renderAllTransactions();
 }
 
 function renderAllTransactions() {
-  const container = document.getElementById("allTransactions");
-  if(!container) return;
-
-  const searchInput = document.getElementById("transactionSearchInput");
-  const query = searchInput ? searchInput.value.toLowerCase().trim() : "";
-
+  const c = document.getElementById("allTransactions"); if(!c) return;
+  const q = document.getElementById("transactionSearchInput").value.toLowerCase();
+  
   let filtered = appData.transactions.filter(t => {
-    let matchStatus = true;
-    if (currentTrxFilter === 'Antrian') matchStatus = (t.status === 'Antrian' || t.status === 'Pending');
-    else if (currentTrxFilter === 'Proses') matchStatus = (t.status === 'Proses');
-    else if (currentTrxFilter === 'Siap Diambil') matchStatus = (t.status === 'Siap Diambil');
-    else if (currentTrxFilter === 'Selesai') matchStatus = (t.status === 'Selesai' || t.status === 'Lunas');
-
-    let matchSearch = t.customerName.toLowerCase().includes(query);
-    return matchStatus && matchSearch;
+    let matchStatus = false;
+    if(currentTrxFilter === 'Antrian' && (t.status === 'Antrian' || t.status === 'Batal')) matchStatus = true;
+    else if (t.status === currentTrxFilter) matchStatus = true;
+    return matchStatus && t.customerName.toLowerCase().includes(q);
   });
 
-  if(filtered.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:0.85rem;">Tidak ada transaksi</div>`;
-    return;
-  }
+  if(filtered.length === 0) { c.innerHTML = `<p style="text-align:center; color:#888; padding:20px;">Kosong</p>`; return; }
 
-  container.innerHTML = filtered.map(t => {
-    let statusClass = 'status-antrian';
-    if(t.status === 'Proses') statusClass = 'status-proses';
-    if(t.status === 'Siap Diambil') statusClass = 'status-siap';
-    if(t.status === 'Selesai') statusClass = 'status-selesai';
+  c.innerHTML = filtered.map(t => {
+    let payBadge = t.paymentStatus === 'Lunas' ? 'badge-lunas' : 'badge-belum';
+    let statBadge = 'badge-antrian';
+    if(t.status==='Proses') statBadge='badge-proses'; if(t.status==='Siap Diambil') statBadge='badge-siap'; if(t.status==='Selesai') statBadge='badge-selesai';
+    
+    // Tentukan Tombol Aksi Berdasarkan Status
+    let actBtn = "";
+    if(t.status !== 'Batal') {
+      if(t.status === 'Antrian') actBtn = `<button class="btn-secondary" onclick="ubahStatusTrx(${t.id}, 'Proses')">Proses Cucian</button> <button class="btn-danger-small" onclick="ubahStatusTrx(${t.id}, 'Batal')">Batal</button>`;
+      else if(t.status === 'Proses') actBtn = `<button class="btn-secondary" onclick="ubahStatusTrx(${t.id}, 'Siap Diambil')">Siap Diambil</button> <button class="btn-danger-small" onclick="ubahStatusTrx(${t.id}, 'Antrian')">Batal Proses</button>`;
+      else if(t.status === 'Siap Diambil') actBtn = `<button class="btn-success-small" onclick="ubahStatusTrx(${t.id}, 'Selesai')">Selesaikan</button>`;
+    }
 
     return `
       <div class="trx-card">
-        <div class="trx-info">
-          <h4>TRX/${String(t.id).slice(-4)} - <b>${escapeHTML(t.customerName)}</b></h4>
-          <p>Total: <b>${formatRupiah(t.total)}</b> • ${new Date(t.date).toLocaleDateString('id-ID')}</p>
-          <span class="trx-status ${statusClass}" style="margin-top:6px; display:inline-block;">${t.status}</span>
+        <div class="trx-header">
+          <div><h4>${t.customerName}</h4><span class="badge ${statBadge}">${t.status}</span> <span class="badge ${payBadge}" onclick="toggleLunas(${t.id})" style="cursor:pointer;">${t.paymentStatus} 🔄</span></div>
+          <b style="color:var(--primary);">${formatRupiah(t.total)}</b>
         </div>
-        <div>
-          <button class="btn-secondary" style="padding:6px 10px; font-size:0.75rem;" onclick="proposeNextStatus(${t.id})">Proses ➔</button>
+        <div style="font-size:0.75rem; color:#666; margin-bottom:8px;">${t.items.map(i=>i.name).join(", ")}</div>
+        <div class="trx-actions">
+          <button class="btn-secondary" onclick="showToast('Fitur Cetak Nota Bluetooth Segera Hadir')"><i class="fas fa-print"></i> Nota</button>
+          ${actBtn}
         </div>
       </div>
     `;
   }).join("");
 }
 
-function proposeNextStatus(id) {
-  let t = appData.transactions.find(item => item.id === id);
-  if(!t) return;
-  
-  if(t.status === 'Antrian') t.status = 'Proses';
-  else if(t.status === 'Proses') t.status = 'Siap Diambil';
-  else if(t.status === 'Siap Diambil') t.status = 'Selesai';
-  
-  saveToCloud();
-  renderAllTransactions();
-  renderDashboardLaundry();
-  calculateFinance();
-  showToast("Status diperbarui menjadi: " + t.status);
+function ubahStatusTrx(id, newStat) {
+  let t = appData.transactions.find(x => x.id === id);
+  if(t) { t.status = newStat; saveToCloud(); renderAllTransactions(); renderDashboardLaundry(); calculateFinance(); }
 }
 
-function escapeHTML(str) {
-  return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+function toggleLunas(id) {
+  let t = appData.transactions.find(x => x.id === id);
+  if(t) { t.paymentStatus = t.paymentStatus === 'Lunas' ? 'Belum Lunas' : 'Lunas'; saveToCloud(); renderAllTransactions(); }
+}
+/* KEUANGAN & LABA BERSIH */
+function openExpenseModal(cat) {
+  document.getElementById("expenseCategory").value = cat; document.getElementById("expenseModalTitle").textContent = `Catat: ${cat}`;
+  document.getElementById("expenseModal").style.display = "flex";
+}
+document.getElementById("expenseForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  appData.finances.unshift({ id: Date.now(), date: document.getElementById("expenseDate").value, category: document.getElementById("expenseCategory").value, desc: document.getElementById("expenseDesc").value, amount: Number(document.getElementById("expenseAmount").value) });
+  saveToCloud(); document.getElementById("expenseModal").style.display = "none"; calculateFinance(); showToast("Disimpan");
+});
+
+function calculateFinance() {
+  const m = document.getElementById("homeMonthFilter").value;
+  let tOut = 0;
+  ['HARIAN', 'LAIN2', 'LAUNDRY', 'TABUNGAN'].forEach(cat => {
+    let sum = appData.finances.filter(f => (m ? f.date.startsWith(m) : true) && f.category === cat).reduce((a, b) => a + b.amount, 0);
+    document.getElementById(`sub-${cat}`).textContent = formatRupiah(sum);
+    if(cat !== 'TABUNGAN') tOut += sum;
+  });
+  document.getElementById("totalPengeluaran").textContent = formatRupiah(tOut);
+  
+  let omzet = appData.transactions.filter(t => (m ? t.date.startsWith(m) : true) && t.status !== 'Batal').reduce((a, b) => a + b.total, 0);
+  let bLndry = appData.finances.filter(f => f.category === 'LAUNDRY' && (m ? f.date.startsWith(m) : true)).reduce((a, b) => a + b.amount, 0);
+  document.getElementById("labaBersihLaundry").textContent = formatRupiah(omzet - bLndry);
+  
+  const tbody = document.getElementById("tableBodyFinance");
+  if(tbody) tbody.innerHTML = appData.finances.filter(f => m ? f.date.startsWith(m) : true).map(f => `<tr><td>${f.date.substring(5)}</td><td><b>${f.category}</b></td><td>${f.desc}</td><td style="color:red;">${formatRupiah(f.amount)}</td><td><button onclick="deleteFinance(${f.id})">✕</button></td></tr>`).join("");
+}
+function deleteFinance(id) { if(confirm("Hapus?")) { appData.finances = appData.finances.filter(f => f.id !== id); saveToCloud(); calculateFinance(); } }
+
+/* DIARI HARIAN */
+function openNotesModal() { document.getElementById("notesModal").style.display="flex"; renderNotesList(); }
+document.getElementById("noteForm").addEventListener("submit", (e) => {
+  e.preventDefault(); appData.notes.unshift({ id: Date.now(), datetime: document.getElementById("noteDateTime").value, content: document.getElementById("noteContent").value });
+  saveToCloud(); document.getElementById("addNoteModal").style.display="none"; renderNotesList();
+});
+function renderNotesList() {
+  const c = document.getElementById("notesListContainer"); document.getElementById("sub-CATATAN").textContent = `${appData.notes.length} Catatan`;
+  if(c) c.innerHTML = appData.notes.map(n => `<div style="background:#f8fafc; padding:10px; border:1px solid #bae6fd; margin-bottom:8px; border-radius:8px;"><b>${n.datetime.replace('T',' ')}</b><p>${n.content}</p><button onclick="deleteNote(${n.id})" style="color:red; background:none; border:none; margin-top:5px;">Hapus</button></div>`).join("");
+}
+function deleteNote(id) { appData.notes = appData.notes.filter(n=>n.id!==id); saveToCloud(); renderNotesList(); }
+/* PELANGGAN */
+function renderCustomersList() {
+  const c = document.getElementById("customersListContainer"); if(!c) return;
+  const cm = {};
+  appData.transactions.forEach(t => {
+    if(!cm[t.customerName]) cm[t.customerName] = { c: 0, s: 0 };
+    cm[t.customerName].c++; cm[t.customerName].s += t.total;
+  });
+  c.innerHTML = Object.keys(cm).map(k => `<div style="background:#fff; border:1px solid #ddd; padding:12px; border-radius:10px; margin-bottom:10px; display:flex; justify-content:space-between;"><div><b>${k}</b><p style="font-size:0.75rem;">${cm[k].c} Transaksi</p></div><b style="color:var(--primary);">${formatRupiah(cm[k].s)}</b></div>`).join("");
+}
+
+/* OUTLET & KARYAWAN */
+function refreshOutletUI() {
+  const name = appData.outlet.name || "Aplikasi Kasir";
+  document.getElementById("loginOutletName").textContent = name; document.getElementById("headerOutletName").textContent = name;
+  if(document.getElementById("dispOutletName")) { document.getElementById("dispOutletName").textContent = name; document.getElementById("dispOutletAddress").textContent = appData.outlet.address; }
+}
+function openOutletModal() { document.getElementById("outletModal").style.display="flex"; document.getElementById("inputOutletName").value=appData.outlet.name; }
+document.getElementById("outletForm").addEventListener("submit", (e) => { e.preventDefault(); appData.outlet.name=document.getElementById("inputOutletName").value; saveToCloud(); refreshOutletUI(); document.getElementById("outletModal").style.display="none"; });
+
+function renderKaryawanList() {
+  const c = document.getElementById("karyawanList"); if(!c) return;
+  c.innerHTML = appData.users.map(u => `<div style="background:#fff; padding:10px; border:1px solid #ddd; margin-bottom:8px; border-radius:8px; display:flex; justify-content:space-between;"><div><b>${u.name}</b> (${u.role})<br><small>${u.username}</small></div><button onclick="appData.users=appData.users.filter(x=>x.id!==${u.id});saveToCloud();renderKaryawanList();" style="color:red; background:none; border:none;">Hapus</button></div>`).join("");
+}
+function openKaryawanModal() { document.getElementById("karyawanModal").style.display="flex"; }
+document.getElementById("karyawanForm").addEventListener("submit", (e) => {
+  e.preventDefault(); appData.users.push({ id: Date.now(), name: document.getElementById("inputKarName").value, username: document.getElementById("inputKarUser").value, password: document.getElementById("inputKarPass").value, role: document.getElementById("inputKarRole").value });
+  saveToCloud(); document.getElementById("karyawanModal").style.display="none"; renderKaryawanList();
+});
+
+/* KALKULATOR */
+function getCalcDoc() { return appData.calcDocs[0]; }
+function loadCalcDoc() { updateCalcScreen(); renderCalcRows(); }
+function updateCalcScreen() { document.getElementById("calcScreen").value = Number(calcInput).toLocaleString('id-ID'); document.getElementById("activeOpSymbol").textContent = calcActiveOp; }
+function calcAppendNum(num) { if(calcInput === "0" && num !== ".") calcInput = num; else { if(num==="." && calcInput.includes(".")) return; calcInput += num; } updateCalcScreen(); }
+function calcBackSpace() { calcInput = calcInput.length > 1 ? calcInput.slice(0,-1) : "0"; updateCalcScreen(); }
+function calcClear() { getCalcDoc().rows = []; calcInput = "0"; calcActiveOp = "+"; saveToCloud(); updateCalcScreen(); renderCalcRows(); }
+function calcAddOp(op) { const val = parseFloat(calcInput); if(!isNaN(val) && (val !== 0 || calcInput !== "0")) { getCalcDoc().rows.push({ op: calcActiveOp, val }); calcInput = "0"; saveToCloud(); } calcActiveOp = op; renderCalcRows(); updateCalcScreen(); }
+function calcEquals() { const val = parseFloat(calcInput); if(!isNaN(val) && (val !== 0 || calcInput !== "0")) { getCalcDoc().rows.push({ op: calcActiveOp, val }); } getCalcDoc().rows.push({ isResult: true }); calcInput = "0"; calcActiveOp = "+"; saveToCloud(); renderCalcRows(); updateCalcScreen(); }
+function renderCalcRows() {
+  const c = document.getElementById("calcRowsContainer"); if(!c) return; let t = 0;
+  c.innerHTML = getCalcDoc().rows.map(r => {
+    if(r.isResult) { let res = t; t = 0; return `<div style="text-align:right; font-weight:bold; color:var(--primary); border-top:1px solid #ccc; padding-top:5px;">= ${res.toLocaleString('id-ID')}</div>`; }
+    else { if(r.op==='+') t+=r.val; else if(r.op==='-') t-=r.val; else if(r.op==='×') t*=r.val; else if(r.op==='÷') t/=r.val; return `<div style="display:flex; justify-content:space-between; color:#666;"><span>${r.op}</span><span>${r.val.toLocaleString('id-ID')}</span></div>`; }
+  }).join("");
+  c.scrollTop = c.scrollHeight;
 }
