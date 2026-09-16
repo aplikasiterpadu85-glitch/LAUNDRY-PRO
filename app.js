@@ -580,3 +580,255 @@ function batalTrx(id) {
 function openServiceModal() { showToast("Gunakan menu layanan utama."); }
 function openEditServiceModal() { showToast("Gunakan menu layanan utama."); }
                                               
+// ==========================================
+// KODE PERBAIKAN TOTAL (SUPER FIX)
+// ==========================================
+
+// 1. PERBAIKAN FITUR MENU LAYANAN LENGKAP (Menghapus efek Dummy Toast)
+function injectRichServiceModalHTML() {
+  if (document.getElementById("serviceModal")) document.getElementById("serviceModal").remove();
+  const modalEl = document.createElement("div");
+  modalEl.id = "serviceModal";
+  modalEl.className = "modal";
+  // Pakai style langsung agar kebal terhadap error CSS
+  modalEl.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; display:none; align-items:center; justify-content:center; padding:20px;";
+  modalEl.innerHTML = `
+    <div class="modal-content" style="background: white; padding: 20px; border-radius: 16px; width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h3 id="serviceModalTitle" style="font-size:18px; font-weight:bold;">Tambah Layanan</h3>
+        <button type="button" onclick="closeServiceModal()" style="background:none; border:none; font-size:24px; cursor:pointer;">×</button>
+      </div>
+      <form id="richServiceForm" onsubmit="saveRichService(event)">
+        <input type="hidden" id="editServiceOldName" value="">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Nama Layanan</label>
+          <input type="text" id="srvName" placeholder="Contoh: Baju bayi kering" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;" required>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:6px;">Proses Laundry</label>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+            <label style="font-size:13px;"><input type="checkbox" name="srvProcess" value="Cuci"> Cuci</label>
+            <label style="font-size:13px;"><input type="checkbox" name="srvProcess" value="Pengeringan"> Pengeringan</label>
+            <label style="font-size:13px;"><input type="checkbox" name="srvProcess" value="Setrika"> Setrika</label>
+            <label style="font-size:13px;"><input type="checkbox" name="srvProcess" value="Lipat"> Lipat</label>
+            <label style="font-size:13px;"><input type="checkbox" name="srvProcess" value="Packing"> Packing</label>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:12px;">
+          <div style="flex:1;">
+            <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Harga (Rp)</label>
+            <input type="number" id="srvPrice" placeholder="0" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;" required>
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Satuan</label>
+            <select id="srvUnit" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
+              <option value="kg">kg</option><option value="pcs">pcs</option><option value="set">set</option><option value="m²">m²</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:12px;">
+          <div style="flex:1;">
+            <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Durasi</label>
+            <input type="text" id="srvDuration" value="1 Hari" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Min. Kuantitas</label>
+            <input type="number" id="srvMinQty" value="1" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
+          </div>
+        </div>
+        <button type="submit" style="width:100%; background:#1769e0; color:white; padding:12px; border:none; border-radius:8px; font-weight:bold;">Simpan</button>
+        <button type="button" id="btnDeleteService" style="width:100%; background:#dc2626; color:white; padding:12px; border:none; border-radius:8px; font-weight:bold; margin-top:8px; display:none;" onclick="deleteCurrentService()">Hapus Layanan</button>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(modalEl);
+}
+
+function openServiceModal() {
+  injectRichServiceModalHTML();
+  document.getElementById("serviceModalTitle").textContent = "Tambah Layanan";
+  document.getElementById("editServiceOldName").value = "";
+  document.getElementById("richServiceForm").reset();
+  document.getElementById("btnDeleteService").style.display = "none";
+  document.getElementById("serviceModal").style.display = "flex"; // Fix error modal ga muncul
+}
+
+function openEditServiceModal(name) {
+  injectRichServiceModalHTML();
+  const srv = servicePrices[name];
+  if (!srv) return;
+  document.getElementById("serviceModalTitle").textContent = "Ubah Layanan";
+  document.getElementById("editServiceOldName").value = name;
+  document.getElementById("srvName").value = name;
+  document.getElementById("srvPrice").value = srv.price;
+  document.getElementById("srvDuration").value = srv.duration || "1 Hari";
+  document.getElementById("srvMinQty").value = srv.minQty || 1;
+  document.getElementById("srvUnit").value = srv.unit || "kg";
+  
+  const processes = srv.processes || [];
+  document.querySelectorAll("input[name='srvProcess']").forEach(cb => { cb.checked = processes.includes(cb.value); });
+  document.getElementById("btnDeleteService").style.display = "block";
+  document.getElementById("serviceModal").style.display = "flex"; // Fix error modal ga muncul
+}
+
+function closeServiceModal() { document.getElementById("serviceModal").style.display = "none"; }
+
+function saveRichService(e) {
+  e.preventDefault();
+  const oldName = document.getElementById("editServiceOldName").value.trim();
+  const newName = document.getElementById("srvName").value.trim();
+  const price = Number(document.getElementById("srvPrice").value);
+  const unit = document.getElementById("srvUnit").value;
+  const duration = document.getElementById("srvDuration").value.trim() || "1 Hari";
+  const minQty = Number(document.getElementById("srvMinQty").value) || 1;
+  const processes = [];
+  document.querySelectorAll("input[name='srvProcess']:checked").forEach(cb => processes.push(cb.value));
+
+  if (!newName || isNaN(price)) { showToast("Nama & harga wajib diisi"); return; }
+  if (oldName && oldName !== newName) delete servicePrices[oldName];
+
+  servicePrices[newName] = { price, unit, processes, duration, minQty, pinned: true };
+  safeStorage.setItem("arsyServices", JSON.stringify(servicePrices));
+  renderServices();
+  closeServiceModal();
+  showToast("Layanan disimpan");
+}
+
+function deleteCurrentService() {
+  const name = document.getElementById("editServiceOldName").value.trim();
+  if(confirm(`Hapus layanan "${name}"?`)) {
+    delete servicePrices[name];
+    safeStorage.setItem("arsyServices", JSON.stringify(servicePrices));
+    renderServices(); closeServiceModal(); showToast("Dihapus");
+  }
+}
+
+// 2. PERBAIKAN POP-UP "+ TAMBAH LAYANAN" DI TRANSAKSI BARU AGAR MAU MUNCUL
+function injectSelectServiceModalHTML() {
+  if (document.getElementById("selectServiceModal")) document.getElementById("selectServiceModal").remove();
+  const modal = document.createElement("div");
+  modal.id = "selectServiceModal";
+  // Memaksa CSS display inline agar kebal error
+  modal.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; display:none; align-items:center; justify-content:center; padding:20px;";
+  modal.innerHTML = `
+    <div class="modal-content" style="background: white; padding: 20px; border-radius: 16px; width: 100%; max-width: 400px; max-height: 85vh; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="font-size: 18px; font-weight: bold;">Pilih Layanan</h3>
+        <button type="button" onclick="closeSelectServiceModal()" style="background:none; border:none; font-size:24px; cursor:pointer;">×</button>
+      </div>
+      <input type="text" id="searchServiceInput" placeholder="🔍 Cari layanan..." onkeyup="filterServiceListModal(this.value)" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px; outline:none;">
+      <div id="modalServiceListContainer" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; max-height: 50vh;"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function openServiceSelect() {
+  injectSelectServiceModalHTML();
+  renderModalServiceList(servicePrices);
+  document.getElementById("searchServiceInput").value = "";
+  // INI PENYAKITNYA! Sebelumnya pakai classList.add("show"), sekarang langsung paksa display flex
+  document.getElementById("selectServiceModal").style.display = "flex"; 
+}
+
+function closeSelectServiceModal() { document.getElementById("selectServiceModal").style.display = "none"; }
+
+function renderModalServiceList(servicesObj) {
+  const container = document.getElementById("modalServiceListContainer");
+  if (!container) return;
+  const keys = Object.keys(servicesObj);
+  if (keys.length === 0) { container.innerHTML = `<p style="text-align: center; color: #888; padding: 20px;">Belum ada data</p>`; return; }
+  
+  container.innerHTML = keys.map(name => {
+    const srv = servicesObj[name];
+    return `
+      <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px;">
+        <div>
+          <strong style="font-size: 14px; display: block;">${escapeHTML(name)}</strong>
+          <span style="font-size: 12px; color: #1769e0; font-weight: bold;">${formatRupiah(srv.price)} / ${srv.unit}</span>
+        </div>
+        <button type="button" onclick="selectServiceForTransaction('${escapeHTML(name)}')" style="background: #e1edff; color: #1769e0; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold;">+ Pilih</button>
+      </div>
+    `;
+  }).join("");
+}
+
+function filterServiceListModal(keyword) {
+  const q = keyword.toLowerCase().trim();
+  const filtered = {};
+  Object.keys(servicePrices).forEach(name => { if (name.toLowerCase().includes(q)) filtered[name] = servicePrices[name]; });
+  renderModalServiceList(filtered);
+}
+
+function selectServiceForTransaction(name) {
+  const srv = servicePrices[name];
+  if (!srv) return;
+  activeNewTransactionItems.push({ serviceType: name, weight: srv.minQty || 1, total: srv.price * (srv.minQty || 1) });
+  renderTrxItems();
+  closeSelectServiceModal();
+  showToast(name + " ditambahkan");
+}
+
+// 3. PERBAIKAN BANNER KEUANGAN (Otomatis menyuntikkan HTML Keuangan Sisi Titi jika belum ada)
+function injectKeuanganPageHTML() {
+  if(document.getElementById("keuanganPage")) return; // Jika sudah ada, lewati
+  const sec = document.createElement("section");
+  sec.id = "keuanganPage";
+  sec.className = "page report-page admin-only";
+  sec.innerHTML = `
+    <div class="report-header" style="display:flex; align-items:center; gap:15px; padding:20px; background:white; border-bottom:1px solid #ccc;">
+      <button class="report-back" onclick="showPage('dashboardPage')" style="font-size:24px; background:none; border:none; cursor:pointer;">‹</button>
+      <div><h1 style="font-size:20px; margin:0;">Keuangan Sisi Titi</h1><p style="margin:0; font-size:12px; color:#888;">Laba Bersih & Kas</p></div>
+    </div>
+    <div class="report-content" style="padding:20px;">
+      <div style="background:#e0f2fe; border:1px solid #7dd3fc; padding:15px; border-radius:12px; text-align:center; margin-bottom:15px;">
+        <span style="font-size:12px; color:#0369a1; display:block; margin-bottom:5px;">LABA BERSIH (Omset - Biaya Laundry)</span>
+        <strong id="labaBersihLengkap" style="font-size:24px; color:#0369a1;">Rp 0</strong>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+        <div style="background:#dcfce7; border:1px solid #86efac; padding:15px; border-radius:12px;"><span style="font-size:11px; display:block;">Omset Laundry</span><strong id="omsetLaundryTotal">Rp 0</strong></div>
+        <div style="background:#fee2e2; border:1px solid #fca5a5; padding:15px; border-radius:12px;"><span style="font-size:11px; display:block;">Total Pengeluaran</span><strong id="pengeluaranTotal" style="color:#dc2626;">Rp 0</strong></div>
+      </div>
+      <h2 style="font-size:16px; margin-bottom:10px;">Catat Pengeluaran</h2>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+        <button onclick="openInputPengeluaran('HARIAN')" style="display:flex; justify-content:space-between; padding:15px; background:white; border:1px solid #ccc; border-radius:12px;"><span>📆 HARIAN</span><span id="subTotalHarian">Rp 0</span></button>
+        <button onclick="openInputPengeluaran('LAUNDRY')" style="display:flex; justify-content:space-between; padding:15px; background:white; border:1px solid #ccc; border-radius:12px;"><span>🧺 BIAYA LAUNDRY</span><span id="subTotalLaundry">Rp 0</span></button>
+        <button onclick="openInputPengeluaran('LAIN2')" style="display:flex; justify-content:space-between; padding:15px; background:white; border:1px solid #ccc; border-radius:12px;"><span>📚 LAIN-LAIN</span><span id="subTotalLain">Rp 0</span></button>
+        <button onclick="openInputPengeluaran('TABUNGAN')" style="display:flex; justify-content:space-between; padding:15px; background:white; border:1px solid #ccc; border-radius:12px;"><span>📔 TABUNGAN</span><span id="subTotalTabungan">Rp 0</span></button>
+      </div>
+      <h2 style="font-size:16px; margin-bottom:10px;">Riwayat Pengeluaran</h2>
+      <div style="background:white; border:1px solid #ccc; border-radius:12px; overflow:hidden;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+          <thead style="background:#f8fafc;"><tr style="border-bottom:1px solid #ccc;"><th style="padding:10px;">Tgl</th><th>Kategori</th><th>Nominal</th><th>Hapus</th></tr></thead>
+          <tbody id="tabelPengeluaranBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(sec);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  injectKeuanganPageHTML();
+  
+  // Memaksa klik pada Banner Keuangan Sisi Titi agar mau pindah halaman
+  const banners = document.querySelectorAll(".welcome-card");
+  banners.forEach(b => {
+    if(b.textContent.includes("Keuangan") || b.textContent.includes("Laba Bersih")) {
+      b.onclick = function(e) {
+        e.preventDefault();
+        showPage('keuanganPage');
+      };
+    }
+  });
+});
+
+// Amankan modal lama transaksi agar bisa muncul pakai style.display
+if(typeof openTransactionModal !== 'undefined') {
+  const oldOpenTransactionModal = openTransactionModal;
+  openTransactionModal = function() {
+    oldOpenTransactionModal();
+    const mdl = document.getElementById("transactionModalFull");
+    if(mdl) mdl.style.display = "flex";
+  };
+}
