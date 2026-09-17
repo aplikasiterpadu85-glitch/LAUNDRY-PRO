@@ -269,7 +269,7 @@ function openTrxDetail(id) {
     // Tombol Bayar / Batalkan Bayar
     let btnPay = t.isPaid ? 
         `<button onclick="togglePay('${t.id}')" class="submit-button" style="background:#fee2e2; color:#dc2626; margin-bottom:10px;">Batalkan Pembayaran (Belum Lunas)</button>` :
-        `<button onclick="togglePay('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:10px;">Bayar (Tandai Lunas)</button>`;
+        `<button onclick="togglePay('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:10px;">Bayar</button>`;
 
     const html = `
         <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
