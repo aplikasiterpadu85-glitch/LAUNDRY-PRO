@@ -557,4 +557,88 @@
         </div>
       </div>
     </div>
-    
+        <!-- 🌟 CSS Animasi Halus -->
+    <style>
+      .page { display: none; animation: fadeIn 0.3s ease-in-out; }
+      .page.active { display: block; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      .dashboard-card { cursor: pointer; transition: transform 0.2s; }
+      .dashboard-card:active { transform: scale(0.95); }
+    </style>
+
+    <!-- 📊 HALAMAN LAPORAN (Sesuai Arsy Laundry) -->
+    <section id="laporanPage" class="page">
+      <div class="report-header">
+        <h2 style="font-size:16px;">Laporan</h2>
+        <p style="font-size:12px; color:var(--muted); margin:0;">Ringkasan aktivitas laundry</p>
+      </div>
+      <div style="padding:15px; padding-bottom:100px;">
+         <div style="background:white; border-radius:12px; border:1px solid var(--border); overflow:hidden;">
+            <div onclick="showToast('Fitur Detail Laporan akan aktif di update berikutnya!')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid var(--border); cursor:pointer;">
+                <div style="width:40px; height:40px; background:#e1edff; color:#1769e0; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-right:15px;">💰</div>
+                <div style="flex:1;">
+                    <h3 style="font-size:14px; margin-bottom:2px;">Laporan Omzet Transaksi</h3>
+                    <p style="font-size:11px; color:var(--muted); margin:0;">Omzet seluruh transaksi laundry</p>
+                </div>
+                <div style="color:var(--muted);">›</div>
+            </div>
+            <div onclick="showToast('Fitur Detail Laporan akan aktif di update berikutnya!')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid var(--border); cursor:pointer;">
+                <div style="width:40px; height:40px; background:#fce7f3; color:#db2777; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-right:15px;">📥</div>
+                <div style="flex:1;">
+                    <h3 style="font-size:14px; margin-bottom:2px;">Laporan Transaksi Masuk</h3>
+                    <p style="font-size:11px; color:var(--muted); margin:0;">Semua data transaksi laundry</p>
+                </div>
+                <div style="color:var(--muted);">›</div>
+            </div>
+            <div onclick="showToast('Fitur Detail Laporan akan aktif di update berikutnya!')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid var(--border); cursor:pointer;">
+                <div style="width:40px; height:40px; background:#fef08a; color:#ca8a04; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-right:15px;">💲</div>
+                <div style="flex:1;">
+                    <h3 style="font-size:14px; margin-bottom:2px;">Laporan Transaksi Lunas</h3>
+                    <p style="font-size:11px; color:var(--muted); margin:0;">Transaksi yang sudah lunas</p>
+                </div>
+                <div style="color:var(--muted);">›</div>
+            </div>
+            <div onclick="showToast('Fitur Detail Laporan akan aktif di update berikutnya!')" style="display:flex; align-items:center; padding:15px; cursor:pointer;">
+                <div style="width:40px; height:40px; background:#dcfce7; color:#16a34a; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-right:15px;">✅</div>
+                <div style="flex:1;">
+                    <h3 style="font-size:14px; margin-bottom:2px;">Laporan Transaksi Selesai</h3>
+                    <p style="font-size:11px; color:var(--muted); margin:0;">Transaksi berstatus selesai</p>
+                </div>
+                <div style="color:var(--muted);">›</div>
+            </div>
+         </div>
+      </div>
+    </section>
+
+    <!-- 💳 MODAL PEMBAYARAN (Pilihan Tunai, GoPay, dll) -->
+    <div id="paymentModal" class="modal" style="z-index:1005;">
+      <div class="modal-content" style="background:#f4f7fb; max-height:80vh; overflow-y:auto;">
+        <div class="modal-header" style="margin-bottom:15px;">
+          <h2>Pembayaran</h2>
+          <button type="button" class="close-button" onclick="closeModal('paymentModal')">✕</button>
+        </div>
+        <div style="background:white; padding:15px; border-radius:8px; border:1px solid var(--border);">
+            <p style="font-size:12px; color:var(--muted); margin-bottom:5px; font-weight:bold;">Total Tagihan / Sisa</p>
+            <h3 id="payTotalAmount" style="color:var(--primary); font-size:24px; margin-bottom:20px;">Rp 0</h3>
+            
+            <label style="font-size:12px; font-weight:bold;">Status Pembayaran</label>
+            <select id="payStatusSelect" style="margin-bottom:15px;">
+                <option value="Lunas">Lunas</option>
+                <option value="Belum Lunas">Belum Lunas</option>
+            </select>
+            
+            <label style="font-size:12px; font-weight:bold;">Metode Pembayaran</label>
+            <select id="payMethodSelect">
+                <option value="Tunai">Tunai</option>
+                <option value="GoPay">GoPay</option>
+                <option value="Dana">Dana</option>
+                <option value="ShopeePay">ShopeePay</option>
+                <option value="QRIS">QRIS</option>
+                <option value="Transfer">Transfer</option>
+                <option value="Deposit">Deposit</option>
+            </select>
+        </div>
+        <button class="submit-button" onclick="confirmPayment()" style="margin-top:20px; background:#16a34a; font-size:16px;">Simpan Pembayaran</button>
+      </div>
+    </div>
+
