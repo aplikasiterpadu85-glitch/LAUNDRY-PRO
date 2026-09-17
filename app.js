@@ -51,7 +51,7 @@ function loginApp() {
 
 function logout() {
     localStorage.removeItem('arsy_user');
-    window.location.reload(); // Refresh total agar bersih saat ganti akun
+    window.location.reload(); 
 }
 
 function initApp() {
@@ -65,10 +65,9 @@ function applyRoleRestrictions() {
     const adminEls = document.querySelectorAll('.admin-only');
     adminEls.forEach(el => {
         if (currentUser.role === 'Admin') {
-            // PERBAIKAN: Menghapus class admin agar tombol Tambah muncul sempurna
             el.classList.remove('admin-only'); 
         } else {
-            el.style.display = 'none'; // Kunci mutlak untuk Kasir
+            el.style.display = 'none';
         }
     });
     
@@ -165,45 +164,90 @@ function renderUsers() {
             <button onclick="deleteUser('${u.id}')" style="background:#fee2e2; color:#dc2626; border:none; padding:8px; border-radius:8px; font-weight:bold;">Hapus</button>
         </div>
     `).join('');
-}
-
+    }
 // ==========================================
-// LAUNDRY LOGIC (LAYANAN & TRANSAKSI)
+// LAUNDRY LOGIC (LAYANAN FULL DETAIL)
 // ==========================================
 function openServiceModal() { 
-    $('srvName').value=''; $('srvPrice').value=''; 
+    if($('serviceForm')) $('serviceForm').reset();
+    $('srvPrice').value = '0'; 
+    $('srvMinQty').value = '1';
+    $('srvDuration').value = '1 Hari';
     $('serviceModal').classList.add('show'); 
 }
+
 function saveService(e) {
     e.preventDefault();
     if(!db.services) db.services = [];
-    db.services.push({ id: Date.now().toString(), name: $('srvName').value, price: Number($('srvPrice').value), unit: $('srvUnit').value });
-    saveToCloud(); renderServices(); closeModal('serviceModal'); 
+    
+    // Ambil data centang proses laundry
+    let processes = [];
+    document.querySelectorAll('.srvProcess:checked').forEach(cb => processes.push(cb.value));
+
+    db.services.push({ 
+        id: Date.now().toString(), 
+        name: $('srvName').value, 
+        processes: processes,
+        price: Number($('srvPrice').value), 
+        unit: $('srvUnit').value,
+        duration: $('srvDuration').value,
+        minQty: Number($('srvMinQty').value),
+        isPinned: $('srvPinned').checked
+    });
+    
+    saveToCloud(); 
+    renderServices(); 
+    closeModal('serviceModal'); 
 }
+
 function renderServices() {
     if(!$('servicesList')) return;
     const srvs = db.services || [];
     
-    // PERBAIKAN: Jika layanan kosong, munculkan teks petunjuk
     if(srvs.length === 0) {
         $('servicesList').innerHTML = '<div class="empty-state">Belum ada layanan.<br>Klik tombol <b>+ Tambah</b> di atas.</div>';
         return;
     }
+
+    // Urutkan: Yang disematkan (Favorit) muncul paling atas
+    const sortedSrvs = [...srvs].sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
     
-    $('servicesList').innerHTML = srvs.map(s => `
-        <div class="service-item">
-            <div class="item-main"><h3>${s.name}</h3><p>${formatRp(s.price)} / ${s.unit}</p></div>
-            <button onclick="delService('${s.id}')" class="btn-del" style="width:auto; margin:0; padding:6px 12px;">Hapus</button>
+    $('servicesList').innerHTML = sortedSrvs.map(s => {
+        const processesText = (s.processes && s.processes.length > 0) ? s.processes.join(' - ') : 'Tanpa Proses';
+        const pinnedBadge = s.isPinned ? '<span style="background:#e1edff; color:#1769e0; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px;">Disematkan</span>' : '';
+        
+        return `
+        <div class="service-item" style="display:flex; flex-direction:column; align-items:stretch; padding:15px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div style="flex:1;">
+                    <h3 style="font-size:15px; margin-bottom:4px; color:var(--text);">${s.name} ${pinnedBadge}</h3>
+                    <p style="font-size:12px; color:var(--muted); margin-bottom:2px;">${processesText}</p>
+                    <p style="font-size:12px; color:var(--muted);">Min. ${s.minQty || 1} ${s.unit} • ${s.duration || '-'}</p>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-weight:bold; color:var(--primary); font-size:14px;">${formatRp(s.price)} / ${s.unit}</div>
+                    <button onclick="delService('${s.id}')" style="background:transparent; color:#ef4444; border:none; font-size:12px; font-weight:bold; cursor:pointer; margin-top:8px; padding:0;">Ketuk untuk hapus</button>
+                </div>
+            </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
+
 function delService(id) { 
     if(confirm("Hapus layanan ini?")) { db.services = db.services.filter(s => s.id !== id); saveToCloud(); renderServices(); } 
 }
 
+// ==========================================
+// TRANSAKSI
+// ==========================================
 function openTransactionModal() {
     if(!db.services || db.services.length === 0) return alert("Tambahkan layanan terlebih dahulu di menu Layanan!");
-    $('trxService').innerHTML = db.services.map(s => `<option value="${s.id}">${s.name} - ${formatRp(s.price)}/${s.unit}</option>`).join('');
+    
+    // Urutkan opsi select juga, favorit di atas
+    const sortedSrvs = [...db.services].sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+    $('trxService').innerHTML = sortedSrvs.map(s => `<option value="${s.id}">${s.name} - ${formatRp(s.price)}/${s.unit}</option>`).join('');
+    
     $('trxCustomer').value=''; $('trxQty').value=''; 
     $('transactionModal').classList.add('show');
 }
@@ -373,4 +417,4 @@ function renderCalcTape() {
     let c = $('calcRowsContainer'); c.scrollTop = c.scrollHeight;
 }
 function delCalcRow(i) { db.calcDocs[0].rows.splice(i, 1); saveLocal(); updateCalc(); }
-    
+        
