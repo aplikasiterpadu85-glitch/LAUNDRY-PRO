@@ -174,28 +174,70 @@ function toggleTrxMenu() { const m = $('trxMenuDropdown'); if(m) m.style.display
 function cancelTransaction() { if(!currentViewTrxId) return; if(confirm("Yakin membatalkan transaksi ini?")) { const t = db.transactions.find(x => x.id === currentViewTrxId); if(t) { t.status = 'Batal'; saveToCloud(); openTrxDetail(currentViewTrxId); renderTransactions('Semua'); updateDashboardStats(); if($('trxMenuDropdown')) $('trxMenuDropdown').style.display = 'none'; showToast("Transaksi Dibatalkan!"); } } }
 function updateStatusFromDetail(id, newStatus) { const t = db.transactions.find(x => x.id === id); if(t) { t.status = newStatus; saveToCloud(); openTrxDetail(id); renderTransactions('Semua'); updateDashboardStats(); } }
 function filterTransactionsTab(status, btn) { document.querySelectorAll('.trans-tab').forEach(b => { b.style.background = '#f4f7fb'; b.style.color = 'var(--muted);'; }); btn.style.background = '#e1edff'; btn.style.color = 'var(--primary)'; renderTransactions(status); }
+// --- 1. FUNGSI KLIK DASHBOARD ---
+function openDashboardDetail(type) {
+    showPage('transactionsPage', document.querySelectorAll('.nav-button')[1]);
+    document.querySelectorAll('.trans-tab').forEach(b => { b.style.background = '#f4f7fb'; b.style.color = 'var(--muted)'; });
+    
+    if (type === 'pending') {
+        const btn = document.querySelectorAll('.trans-tab')[0];
+        btn.style.background = '#e1edff'; btn.style.color = 'var(--primary)';
+        renderTransactions('Antrian');
+    } else {
+        renderTransactions('Semua');
+    }
+}
+
+// --- 2. FUNGSI DETAIL LAPORAN & FILTER ---
+let currentReportType = 'semua';
+
 function bukaDetailLaporan(type) {
     $('laporanMenuView').style.display = 'none';$('laporanDetailView').style.display = 'block';
+    currentReportType = type;
     
-    let trxs = db.transactions || [];
+    $('filterMetode').value = 'semua';
+    $('filterTanggal').value = '';$('filterStatus').value = 'semua';
+    
     let title = "Laporan Transaksi";
-    
-    if(type === 'omzet' || type === 'masuk') {
-        title = type === 'omzet' ? "Laporan Omzet Transaksi" : "Laporan Transaksi Masuk";
-    } else if(type === 'lunas') {
-        title = "Laporan Transaksi Lunas";
-        trxs = trxs.filter(t => t.isPaid);
-    } else if(type === 'selesai') {
-        title = "Laporan Transaksi Selesai";
-        trxs = trxs.filter(t => t.status === 'Selesai');
-    } else if(type === 'batal') {
-        title = "Laporan Transaksi Batal";
-        trxs = trxs.filter(t => t.status === 'Batal');
-    }
+    if(type === 'omzet' || type === 'masuk') title = type === 'omzet' ? "Laporan Omzet Transaksi" : "Laporan Transaksi Masuk";
+    else if(type === 'lunas') { title = "Laporan Transaksi Lunas"; $('filterStatus').value = 'Lunas'; }
+    else if(type === 'selesai') title = "Laporan Transaksi Selesai";
+    else if(type === 'batal') title = "Laporan Transaksi Batal";
     
     $('judulDetailLaporan').textContent = title;
-    const totalNominal = trxs.reduce((sum, t) => sum + (t.status !== 'Batal' ? t.total : 0), 0);
-    $('totalNominalLaporan').textContent = formatRp(totalNominal);$('totalItemLaporan').textContent = trxs.length;
+    terapkanFilterLaporan();
+}
+
+function terapkanFilterLaporan() {
+    let trxs = db.transactions || [];
+    
+    // Filter Dasar Berdasarkan Menu yang Dipilih
+    if (currentReportType === 'selesai') trxs = trxs.filter(t => t.status === 'Selesai');
+    if (currentReportType === 'batal') trxs = trxs.filter(t => t.status === 'Batal');
+    
+    // Filter Metode, Tanggal, dan Status
+    const metode = $('filterMetode').value;
+    if (metode !== 'semua') trxs = trxs.filter(t => t.payMethod === metode);
+    
+    const tgl = $('filterTanggal').value;
+    if (tgl) {
+        const tglStr = new Date(tgl).toLocaleDateString('id-ID');
+        trxs = trxs.filter(t => new Date(t.date).toLocaleDateString('id-ID') === tglStr);
+    }
+    
+    const stat = $('filterStatus').value;
+    if (stat === 'Lunas') trxs = trxs.filter(t => t.isPaid === true);
+    if (stat === 'Belum Lunas') trxs = trxs.filter(t => t.isPaid === false);
+    
+    // Hitung 4 Kotak Ringkasan
+    const totalPendapatan = trxs.reduce((sum, t) => sum + (t.status !== 'Batal' ? t.total : 0), 0);
+    const selesaiLunas = trxs.filter(t => t.isPaid).length;
+    const batal = trxs.filter(t => t.status === 'Batal').length;
+    
+    $('repTotalPendapatan').textContent = formatRp(totalPendapatan);$('repTotalTransaksi').textContent = trxs.length;
+    $('repSelesaiLunas').textContent = selesaiLunas;
+    $('repBatal').textContent = batal;
+    $('repJmlData').textContent = trxs.length + " transaksi";
     
     const container = $('listDetailLaporan');
     if(trxs.length === 0) {
@@ -203,18 +245,22 @@ function bukaDetailLaporan(type) {
         return;
     }
     
-    container.innerHTML = trxs.map(t => `
-        <div onclick="openTrxDetail('${t.id}')" style="background:white; padding:12px; border-radius:8px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+    container.innerHTML = trxs.map(t => {
+        const srvs = t.services || [{name: t.service, qty: t.qty, unit: t.unit, price: t.price, total: t.total}];
+        const srvText = srvs.map(s => `${s.name} (${s.qty})`).join(', ');
+
+        return `
+        <div onclick="openTrxDetail('${t.id}')" style="background:white; padding:15px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
             <div>
-               <h4 style="font-size:14px; margin:0 0 2px 0;">${t.customer}</h4>
-               <p style="font-size:11px; color:var(--muted); margin:0;">${t.id} • <span style="color:${t.status==='Batal'?'#dc2626':'var(--primary)'}; font-weight:bold;">${t.status}</span></p>
+               <h4 style="font-size:14px; margin:0 0 4px 0;">${t.customer}</h4>
+               <p style="font-size:11px; color:var(--muted); margin:0;">${srvText}</p>
             </div>
             <div style="text-align:right;">
                <span style="font-size:14px; font-weight:bold; color:var(--text);">${formatRp(t.total)}</span><br>
                <small style="color:${t.isPaid?'#16a34a':'#ea8b00'}; font-weight:bold;">${t.isPaid?'Lunas':'Belum Lunas'}</small>
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 }
 
 function kembaliKeMenuLaporan() {
