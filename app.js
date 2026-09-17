@@ -1,10 +1,8 @@
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbztgW5hFuF2stW7Q4MCwplr4ufA8cNmTOhOMqr0SELpZ3IDPSal2fPMFd2MNR2gj52P/exec";
 
-// Helper
 const $ = id => document.getElementById(id);
 const formatRp = num => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num || 0);
 
-// --- PERSIAPAN DATABASE ---
 let db = JSON.parse(localStorage.getItem('arsy_db')) || {};
 if (!db.users || db.users.length === 0) db.users = [{ id: '1', name: 'Admin', pin: '1985', role: 'Admin' }];
 if (!db.expenses) db.expenses = [];
@@ -13,7 +11,7 @@ if (!db.calcDocs) db.calcDocs = [{id:1, rows:[]}];
 if (!db.outlet) db.outlet = { name: "Arsy Laundry", phone: "08123456789", city: "Mojokerto", address: "Mlirip" };
 if (!db.services) db.services = [];
 if (!db.transactions) db.transactions = [];
-if (!db.notaSettings) db.notaSettings = { footer: "Terima kasih telah mempercayakan cucian Anda.", terms: "Barang luntur bukan tanggung jawab kami." };
+if (!db.notaCustom) db.notaCustom = { hideLogo: true, hideOutlet: false, hideAddress: false, hideCashier: true, hideCustomer: false, showCat: false, hideMsg: true, hidePerfume: true, hidePowered: true, showDay: true };
 
 let currentUser = JSON.parse(localStorage.getItem('arsy_user'));
 let calcInput = "0", calcOp = "+", isCalcResult = false;
@@ -21,11 +19,7 @@ let calcInput = "0", calcOp = "+", isCalcResult = false;
 window.onload = () => {
     if (currentUser) { initApp(); } else { $('loginModal').classList.add('show'); }
     const pinInput = $('loginPin');
-    if (pinInput) {
-        pinInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') { e.preventDefault(); loginApp(); }
-        });
-    }
+    if (pinInput) { pinInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); loginApp(); } }); }
 };
 
 function loginApp() {
@@ -65,14 +59,12 @@ async function fetchCloudData() {
     } catch (e) { console.log("Offline mode"); }
 }
 
-// PERBAIKAN: Menghilangkan error palsu saat menyimpan
 async function saveToCloud() {
     saveLocal();
     showToast("Menyimpan data...");
     try {
         await fetch(WEB_APP_URL, {
-            method: 'POST',
-            mode: 'no-cors', // Ini rahasianya agar Google tidak memblokir respon
+            method: 'POST', mode: 'no-cors',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'saveAll', ...db })
         });
@@ -103,8 +95,16 @@ function updateUI() {
         $('outName').value = db.outlet.name; $('outPhone').value = db.outlet.phone;
         $('outCity').value = db.outlet.city; $('outAddress').value = db.outlet.address;
     }
-    if($('notaFooter')) $('notaFooter').value = db.notaSettings.footer;
-    if($('notaTerms')) $('notaTerms').value = db.notaSettings.terms;
+    
+    // Set form nota custom
+    if($('nHideLogo')) {
+        const nc = db.notaCustom;
+        $('nHideLogo').checked = nc.hideLogo; $('nHideOutlet').checked = nc.hideOutlet;
+        $('nHideAddress').checked = nc.hideAddress; $('nHideCashier').checked = nc.hideCashier;
+        $('nHideCustomer').checked = nc.hideCustomer; $('nShowCat').checked = nc.showCat;
+        $('nHideMsg').checked = nc.hideMsg; $('nHidePerfume').checked = nc.hidePerfume;
+        $('nHidePowered').checked = nc.hidePowered; $('nShowDay').checked = nc.showDay;
+    }
     
     renderUsers(); calcFinance(); renderServices(); renderTransactions('Semua'); updateDashboardStats();
 }
@@ -114,11 +114,19 @@ function saveOutlet(e) {
     db.outlet = { name:$('outName').value, phone:$('outPhone').value, city:$('outCity').value, address:$('outAddress').value };
     saveToCloud(); updateUI(); showPage('akunPage');
 }
-function saveNota(e) {
+
+function saveNotaCustom(e) {
     e.preventDefault();
-    db.notaSettings = { footer: $('notaFooter').value, terms: $('notaTerms').value };
-    saveToCloud(); showToast("Pengaturan Nota disimpan!"); showPage('akunPage');
+    db.notaCustom = {
+        hideLogo: $('nHideLogo').checked, hideOutlet: $('nHideOutlet').checked,
+        hideAddress: $('nHideAddress').checked, hideCashier: $('nHideCashier').checked,
+        hideCustomer: $('nHideCustomer').checked, showCat: $('nShowCat').checked,
+        hideMsg: $('nHideMsg').checked, hidePerfume: $('nHidePerfume').checked,
+        hidePowered: $('nHidePowered').checked, showDay: $('nShowDay').checked
+    };
+    saveToCloud(); showToast("Pengaturan Nota Disimpan!"); showPage('akunPage');
 }
+
 function connectPrinter() {
     if (navigator.bluetooth) {
         navigator.bluetooth.requestDevice({ acceptAllDevices: true }).then(device => {
@@ -126,6 +134,7 @@ function connectPrinter() {
         }).catch(err => { console.log(err); });
     } else { alert("Gunakan Google Chrome untuk koneksi Bluetooth."); }
 }
+
 function openUserModal() { $('userName').value=''; $('userPin').value=''; $('userModal').classList.add('show'); }
 function saveUser(e) {
     e.preventDefault();
@@ -139,9 +148,9 @@ function deleteUser(id) {
 function renderUsers() {
     const c = $('usersListContainer'); if(!c) return;
     c.innerHTML = db.users.map(u => `<div style="background:white; padding:15px; border-radius:12px; border:1px solid var(--border); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;"><div><h3 style="font-size:15px;">${u.name}</h3><span style="font-size:11px; background:#e1edff; padding:2px 6px; border-radius:6px; color:#1769e0; font-weight:bold;">${u.role}</span><p style="font-size:12px; color:var(--muted); margin-top:5px;">PIN: ${u.pin}</p></div><button onclick="deleteUser('${u.id}')" style="background:#fee2e2; color:#dc2626; border:none; padding:8px; border-radius:8px; font-weight:bold;">Hapus</button></div>`).join('');
-}
+            }
 // ==========================================
-// LAUNDRY LOGIC (LAYANAN & TRANSAKSI)
+// LAUNDRY LOGIC & DETAIL TRANSAKSI
 // ==========================================
 function openServiceModal() { 
     if($('serviceForm')) $('serviceForm').reset();
@@ -202,7 +211,7 @@ function saveTransaction(e) {
     const qty = Number($('trxQty').value);
     db.transactions.unshift({
         id: 'TRX/' + Date.now().toString().slice(3), date: new Date().toISOString(), customer: $('trxCustomer').value,
-        service: srv.name, unit: srv.unit, price: srv.price, qty: qty, total: srv.price * qty, status: 'Antrian'
+        service: srv.name, unit: srv.unit, price: srv.price, qty: qty, total: srv.price * qty, status: 'Antrian', isPaid: false
     });
     saveToCloud(); renderTransactions('Semua'); closeModal('transactionModal'); updateDashboardStats();
     showToast("Transaksi Berhasil Dibuat! ✔️");
@@ -212,7 +221,6 @@ function renderTransactions(filter = 'Semua') {
     let trxs = db.transactions || [];
     if(filter !== 'Semua') trxs = trxs.filter(t => t.status === filter);
     
-    // PERBAIKAN: Seluruh kartu transaksi sekarang bisa diklik untuk membuka Detail!
     const html = trxs.map(t => `
         <div class="transaction-item" onclick="openTrxDetail('${t.id}')" style="cursor:pointer; transition: 0.2s;">
             <div class="item-main">
@@ -221,7 +229,7 @@ function renderTransactions(filter = 'Semua') {
                 <span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span>
             </div>
             <div class="item-price" style="text-align:right;">
-                ${formatRp(t.total)}<br><small style="color:var(--muted); font-weight:normal;">${t.date.substring(0,10)}</small>
+                ${formatRp(t.total)}<br><small style="color:${t.isPaid?'#16a34a':'#ea8b00'}; font-weight:bold;">${t.isPaid?'Lunas':'Belum Lunas'}</small>
             </div>
         </div>
     `).join('');
@@ -237,7 +245,7 @@ function renderTransactions(filter = 'Semua') {
     }
 }
 
-// --- LOGIKA HALAMAN DETAIL TRANSAKSI (Sesuai Video) ---
+// --- DETAIL TRANSAKSI (Sesuai Video & Kontrol Bayar) ---
 function openTrxDetail(id) {
     const t = db.transactions.find(x => x.id === id);
     if(!t) return;
@@ -258,6 +266,11 @@ function openTrxDetail(id) {
     }
     let btnPrev = cIdx > 0 ? `<button onclick="updateStatusFromDetail('${t.id}', '${flow[cIdx-1]}')" class="submit-button" style="margin-top:10px; background:white; color:var(--text); border:1px solid var(--border);">Kembalikan Status</button>` : '';
 
+    // Tombol Bayar / Batalkan Bayar
+    let btnPay = t.isPaid ? 
+        `<button onclick="togglePay('${t.id}')" class="submit-button" style="background:#fee2e2; color:#dc2626; margin-bottom:10px;">Batalkan Pembayaran (Belum Lunas)</button>` :
+        `<button onclick="togglePay('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:10px;">Bayar (Tandai Lunas)</button>`;
+
     const html = `
         <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
             <p style="font-size:12px; color:var(--muted); margin-bottom:4px;">No. Transaksi: <span style="color:var(--text); font-weight:bold;">${t.id}</span></p>
@@ -277,16 +290,12 @@ function openTrxDetail(id) {
         <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <p style="font-size:11px; color:var(--muted); font-weight:bold; margin:0;">LAYANAN LAUNDRY</p>
-                <button style="background:#e1edff; color:var(--primary); border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:bold;">+ Tambah Layanan</button>
+                <button onclick="openTransactionModal()" style="background:#e1edff; color:var(--primary); border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:bold;">+ Tambah Layanan</button>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px dashed var(--border);">
                 <div>
                     <h4 style="font-size:14px; margin-bottom:4px; color:var(--text);">${t.service}</h4>
                     <p style="font-size:12px; color:var(--muted);">${t.qty} ${t.unit} x ${formatRp(t.price)} : ${formatRp(t.total)}</p>
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <button style="width:34px; height:34px; background:#e1edff; color:var(--primary); border:none; border-radius:8px;"><i class="fas fa-edit"></i></button>
-                    <button style="width:34px; height:34px; background:#fee2e2; color:#ef4444; border:none; border-radius:8px;"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
         </div>
@@ -302,16 +311,16 @@ function openTrxDetail(id) {
             </div>
             <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
                 <span style="font-size:13px; color:var(--text); font-weight:bold;">Status Pembayaran</span>
-                <span style="font-size:11px; font-weight:bold; color:#ea8b00; background:#fff0d2; padding:4px 8px; border-radius:6px;">Belum Lunas</span>
+                <span style="font-size:11px; font-weight:bold; color:${t.isPaid?'#16a34a':'#ea8b00'}; background:${t.isPaid?'#dcfce7':'#fff0d2'}; padding:4px 8px; border-radius:6px;">${t.isPaid?'Lunas':'Belum Lunas'}</span>
             </div>
         </div>
 
-        <button class="submit-button" style="background:#16a34a; margin-bottom:10px;">Bayar</button>
+        ${btnPay}
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-            <button class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Nota</button>
-            <button class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Label</button>
+            <button onclick="showToast('Nota siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Nota</button>
+            <button onclick="showToast('Label siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Label</button>
         </div>
-        <button class="submit-button" style="background:#16a34a; margin-bottom:20px;">Kirim Nota WhatsApp</button>
+        <button onclick="shareWhatsApp('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:20px;"><i class="fab fa-whatsapp"></i> Kirim Nota Universal (WA / File / App)</button>
     `;
 
     $('trxDetailContent').innerHTML = html;
@@ -323,6 +332,24 @@ function updateStatusFromDetail(id, newStatus) {
     if(t) { t.status = newStatus; saveToCloud(); openTrxDetail(id); renderTransactions('Semua'); updateDashboardStats(); }
 }
 
+function togglePay(id) {
+    const t = db.transactions.find(x => x.id === id);
+    if(t) { t.isPaid = !t.isPaid; saveToCloud(); openTrxDetail(id); renderTransactions('Semua'); updateDashboardStats(); }
+}
+
+// Fitur Share Universal (WhatsApp, Email, Bluetooth, dll)
+function shareWhatsApp(id) {
+    const t = db.transactions.find(x => x.id === id);
+    if(!t) return;
+    const text = `Halo Kak *${t.customer}*,\n\nTerima kasih telah mencuci di *${db.outlet.name}* (${db.outlet.phone}).\n\nNo Nota: ${t.id}\nLayanan: ${t.service} (${t.qty} ${t.unit})\nTotal: ${formatRp(t.total)}\nStatus Pengerjaan: *${t.status}*\nStatus Pembayaran: *${t.isPaid?'LUNAS':'BELUM LUNAS'}*\n\nSilakan tunjukkan pesan ini saat mengambil cucian. 🙏`;
+    
+    if (navigator.share) {
+        navigator.share({ title: 'Nota ' + db.outlet.name, text: text }).catch(() => {});
+    } else {
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`);
+    }
+}
+
 function filterTransactionsTab(status, btn) {
     document.querySelectorAll('.trans-tab').forEach(b => { b.style.background = '#f4f7fb'; b.style.color = 'var(--muted)'; });
     btn.style.background = '#e1edff'; btn.style.color = 'var(--primary)';
@@ -331,7 +358,7 @@ function filterTransactionsTab(status, btn) {
 function updateDashboardStats() {
     const today = new Date().toISOString().substring(0,10);
     const todayTrx = (db.transactions||[]).filter(t => t.date.startsWith(today));
-    if($('todayIncome')) $('todayIncome').textContent = formatRp(todayTrx.reduce((s, t) => s + t.total, 0));
+    if($('todayIncome')) $('todayIncome').textContent = formatRp(todayTrx.reduce((s, t) => s + (t.isPaid ? t.total : 0), 0));
     if($('todayTransactions')) $('todayTransactions').textContent = todayTrx.length;
     if($('pendingTransactions')) $('pendingTransactions').textContent = (db.transactions||[]).filter(t => t.status !== 'Selesai').length;
 }
@@ -371,4 +398,3 @@ function calcClear() { calcInput = "0"; calcOp = "+"; if(db.calcDocs[0]) db.calc
 function calcEquals() { let val = Number(calcInput); if(!db.calcDocs[0]) db.calcDocs[0] = {id:1, rows:[]}; if(val !== 0) { db.calcDocs[0].rows.push({ op: calcOp, val: val }); calcInput = "0"; } if(db.calcDocs[0].rows.length > 0 && !db.calcDocs[0].rows[db.calcDocs[0].rows.length-1].isResult) { db.calcDocs[0].rows.push({ isResult: true }); isCalcResult = true; calcOp = "+"; saveLocal(); updateCalc(); } }
 function renderCalcTape() { let total = 0; if(!$('calcRowsContainer')) return; $('calcRowsContainer').innerHTML = (db.calcDocs[0]?.rows || []).map((r, i) => { if(r.isResult) return `<div style="border-top:2px solid #0284c7; background:#e0f2fe; padding:6px; font-weight:bold; color:#0284c7; display:flex; justify-content:space-between;"><span>= ${total.toLocaleString('id-ID')}</span><button onclick="delCalcRow(${i})" style="color:red; background:none;">✕</button></div>`; if(r.op === '+') total += r.val; else if(r.op === '-') total -= r.val; else if(r.op === '×') total *= r.val; else if(r.op === '÷') total /= r.val; return `<div style="padding:6px; border-bottom:1px dashed #cbd5e1; display:flex; justify-content:space-between; font-size:14px; font-weight:bold; color:#334155;"><span>${r.op} ${r.val.toLocaleString('id-ID')}</span><button onclick="delCalcRow(${i})" style="color:red; background:none;">✕</button></div>`; }).join(''); let c = $('calcRowsContainer'); c.scrollTop = c.scrollHeight; }
 function delCalcRow(i) { db.calcDocs[0].rows.splice(i, 1); saveLocal(); updateCalc(); }
-            
