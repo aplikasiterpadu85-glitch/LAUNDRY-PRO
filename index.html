@@ -260,3 +260,97 @@
       </div>
     </section>
     
+    <!-- ==================== MODAL OVERLAYS ==================== -->
+    
+    <!-- Modal Input Keuangan (Sisi Titi) -->
+    <div id="finInputModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="finModalTitle">Catat Pengeluaran</h2>
+          <button class="close-button" onclick="closeModal('finInputModal')">✕</button>
+        </div>
+        <form onsubmit="saveFinance(event)">
+          <input type="hidden" id="finCat">
+          <label>Tanggal Transaksi</label><input type="date" id="finDate" required>
+          <label>Keterangan</label><input type="text" id="finDesc" placeholder="Contoh: Beli sabun..." required>
+          <label>Nominal (Rp)</label><input type="number" id="finAmount" required>
+          <button type="submit" class="submit-button" style="margin-top:15px;">Simpan Transaksi</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Catatan Diari (Sisi Titi) -->
+    <div id="diariModal" class="modal">
+      <div class="modal-content" style="max-height:85vh; display:flex; flex-direction:column;">
+        <div class="modal-header">
+          <h2>Catatan Harian (Diari)</h2>
+          <button class="close-button" onclick="closeModal('diariModal')">✕</button>
+        </div>
+        <form onsubmit="saveNote(event)" style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:15px;">
+          <label>Tanggal</label><input type="date" id="noteDate" required>
+          <label>Isi Catatan</label><textarea id="noteContent" rows="3" required></textarea>
+          <button type="submit" class="submit-button" style="margin-top:10px;">+ Tambah Catatan Baru</button>
+        </form>
+        <div id="notesListContainer" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    </div>
+
+    <!-- Modal Karyawan / User -->
+    <div id="userModal" class="modal admin-only">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Tambah Karyawan</h2>
+          <button class="close-button" onclick="closeModal('userModal')">✕</button>
+        </div>
+        <form onsubmit="saveUser(event)">
+          <label>Nama Karyawan</label><input type="text" id="userName" required>
+          <label>Peran / Role</label>
+          <select id="userRole">
+            <option value="Kasir">Kasir (Hanya Akses Laundry)</option>
+            <option value="Admin">Admin (Akses Penuh & Keuangan)</option>
+          </select>
+          <label>PIN (Minimal 4 Angka)</label><input type="number" id="userPin" required>
+          <button type="submit" class="submit-button" style="margin-top:15px;">Simpan Karyawan</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Login Screen -->
+    <div id="loginModal" class="modal show" style="background:#f4f7fb; z-index:9999;">
+      <div class="modal-content" style="border-radius:18px; margin:auto; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.1); max-width:320px;">
+        <div class="akun-profile-box" style="margin:0 auto 15px;">🔒</div>
+        <h2 class="dynamic-outlet-name" style="font-size:20px; font-weight:800; color:var(--primary);">Arsy Laundry</h2>
+        <p style="color:var(--muted); font-size:12px; margin-bottom:20px;">Silakan masukkan PIN untuk masuk</p>
+        <input type="password" id="loginPin" placeholder="PIN" style="text-align:center; font-size:24px; letter-spacing:8px; margin-bottom:15px; border-radius:10px;" pattern="[0-9]*" inputmode="numeric">
+        <button onclick="loginApp()" class="submit-button">Masuk Aplikasi</button>
+        <p id="loginError" style="color:#dc2626; font-size:12px; margin-top:10px; display:none; font-weight:bold;">PIN Salah atau Tidak Terdaftar!</p>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">Notifikasi</div>
+
+    <!-- NAVIGASI BAWAH (Hanya muncul jika sudah login) -->
+    <nav class="bottom-nav" id="mainBottomNav" style="display:none;">
+      <button class="nav-button active" onclick="showPage('dashboardPage', this)">
+        <span>🏠</span><small>Utama</small>
+      </button>
+      <button class="nav-button" onclick="showPage('transactionsPage', this)">
+        <span>📋</span><small>Daftar</small>
+      </button>
+      <button class="nav-button" onclick="alert('Buka form transaksi baru!')" style="position:relative;">
+        <div class="add-button"><span>+</span></div>
+      </button>
+      <button class="nav-button" onclick="showPage('servicesPage', this)">
+        <span>🧼</span><small>Layanan</small>
+      </button>
+      <button class="nav-button" onclick="showPage('akunPage', this)">
+        <span>⚙️</span><small>Akun</small>
+      </button>
+    </nav>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
