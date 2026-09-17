@@ -197,7 +197,37 @@
         <div id="usersListContainer"></div>
       </div>
     </section>
+    <!-- 🖨️ KONEKSI PRINTER BLUETOOTH -->
+    <section id="printerPage" class="page">
+      <div class="report-header">
+        <button class="report-back" onclick="showPage('akunPage')">‹</button>
+        <h2 style="font-size:16px;">Printer Bluetooth</h2>
+      </div>
+      <div style="padding:20px 15px; text-align:center;">
+        <div style="font-size:50px; margin-bottom:15px;">🖨️</div>
+        <p style="font-size:14px; color:var(--text); margin-bottom:20px;">Sambungkan ke Printer Thermal Bluetooth (Contoh: 58mm / 80mm) untuk mencetak struk nota.</p>
+        <button class="submit-button" onclick="connectPrinter()" style="background:var(--primary); margin-bottom:10px;">Cari & Hubungkan Printer</button>
+        <p id="printerStatus" style="font-size:13px; font-weight:bold; color:var(--muted);">Status: Belum Terhubung</p>
+      </div>
+    </section>
 
+    <!-- 📄 PENGATURAN NOTA -->
+    <section id="notaPage" class="page admin-only">
+      <div class="report-header">
+        <button class="report-back" onclick="showPage('akunPage')">‹</button>
+        <h2 style="font-size:16px;">Pengaturan Nota</h2>
+      </div>
+      <form onsubmit="saveNota(event)" style="padding:15px;">
+        <label>Pesan Footer (Bawah Nota)</label>
+        <textarea id="notaFooter" rows="3" placeholder="Contoh: Terima kasih telah mencuci di Arsy Laundry..." required></textarea>
+        
+        <label>Syarat & Ketentuan</label>
+        <textarea id="notaTerms" rows="4" placeholder="Contoh: Barang luntur bukan tanggung jawab kami..." required></textarea>
+        
+        <button type="submit" class="submit-button" style="margin-top:15px;">Simpan Pengaturan Nota</button>
+      </form>
+    </section>
+    
     <!-- 📔 KEUANGAN SISI TITI PAGE (Integrasi) -->
     <section id="keuanganPage" class="page admin-only">
       <div class="report-header" style="background:#e0f2fe; border:none; padding-bottom:10px;">
@@ -338,7 +368,7 @@
       <button class="nav-button" onclick="showPage('transactionsPage', this)">
         <span>📋</span><small>Daftar</small>
       </button>
-      <button class="nav-button" onclick="alert('Buka form transaksi baru!')" style="position:relative;">
+       <button class="nav-button" onclick="openTransactionModal()" style="position:relative;">
         <div class="add-button"><span>+</span></div>
       </button>
       <button class="nav-button" onclick="showPage('servicesPage', this)">
