@@ -556,8 +556,7 @@
            <!-- Isi preview dimunculkan oleh JS -->
         </div>
       </div>
-    </div>
-        <!-- 🌟 CSS Animasi Halus -->
+    </div>    <!-- 🌟 CSS Animasi Halus -->
     <style>
       .page { display: none; animation: fadeIn 0.3s ease-in-out; }
       .page.active { display: block; }
@@ -622,13 +621,13 @@
             <h3 id="payTotalAmount" style="color:var(--primary); font-size:24px; margin-bottom:20px;">Rp 0</h3>
             
             <label style="font-size:12px; font-weight:bold;">Status Pembayaran</label>
-            <select id="payStatusSelect" style="margin-bottom:15px;">
+            <select id="payStatusSelect" style="margin-bottom:15px; width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); font-size:14px;">
                 <option value="Lunas">Lunas</option>
                 <option value="Belum Lunas">Belum Lunas</option>
             </select>
             
             <label style="font-size:12px; font-weight:bold;">Metode Pembayaran</label>
-            <select id="payMethodSelect">
+            <select id="payMethodSelect" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); font-size:14px;">
                 <option value="Tunai">Tunai</option>
                 <option value="GoPay">GoPay</option>
                 <option value="Dana">Dana</option>
@@ -642,3 +641,4 @@
       </div>
     </div>
 
+    
