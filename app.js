@@ -4,20 +4,17 @@ const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbztgW5hFuF2stW7Q4MC
 const $ = id => document.getElementById(id);
 const formatRp = num => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num || 0);
 
-// --- PERBAIKAN KRUSIAL: Mengatasi Error Memori Lama ---
-// Ambil data lama dari HP
+// --- PERSIAPAN DATABASE ---
 let db = JSON.parse(localStorage.getItem('arsy_db')) || {};
-
-// Jika memori lama tidak punya tabel-tabel baru ini, buatkan otomatis agar tidak macet!
 if (!db.users || db.users.length === 0) db.users = [{ id: '1', name: 'Admin', pin: '1985', role: 'Admin' }];
 if (!db.expenses) db.expenses = [];
 if (!db.notes) db.notes = [];
 if (!db.calcDocs) db.calcDocs = [{id:1, rows:[]}];
 if (!db.outlet) db.outlet = { name: "Arsy Laundry", phone: "08123456789", city: "Mojokerto", address: "Mlirip" };
+if (!db.services) db.services = [];
+if (!db.transactions) db.transactions = [];
 
 let currentUser = JSON.parse(localStorage.getItem('arsy_user'));
-
-// Kalkulator State
 let calcInput = "0", calcOp = "+", isCalcResult = false;
 
 window.onload = () => {
@@ -27,67 +24,66 @@ window.onload = () => {
         $('loginModal').classList.add('show');
     }
     
-    // --- PERBAIKAN: Agar tombol Enter di Keyboard HP bisa langsung submit PIN ---
+    // Fitur Enter Keyboard HP untuk Login
     const pinInput = $('loginPin');
     if (pinInput) {
         pinInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                loginApp();
-            }
+            if (e.key === 'Enter') { e.preventDefault(); loginApp(); }
         });
     }
 };
 
-// --- AUTH & SYNC SYSTEM ---
+// --- AUTHENTIKASI & MULTI-USER ---
 function loginApp() {
     const pin = $('loginPin').value;
-    // Cari user berdasarkan PIN
     const user = db.users.find(u => u.pin === pin);
-    
     if (user) {
         currentUser = user;
         localStorage.setItem('arsy_user', JSON.stringify(currentUser));
         $('loginModal').classList.remove('show');
         $('loginPin').value = "";
-        $('loginError').style.display = 'none'; // Sembunyikan error jika berhasil
+        $('loginError').style.display = 'none';
         initApp();
     } else {
-        $('loginError').style.display = 'block'; // Munculkan tulisan PIN Salah
+        $('loginError').style.display = 'block';
     }
 }
 
 function logout() {
     localStorage.removeItem('arsy_user');
-    currentUser = null;
-    $('loginModal').classList.add('show');
-    $('mainBottomNav').style.display = 'none';
+    window.location.reload(); // Refresh total agar bersih saat ganti akun
 }
 
 function initApp() {
     $('mainBottomNav').style.display = 'flex';
     applyRoleRestrictions();
     updateUI();
-    fetchCloudData(); // Sync diam-diam di background
+    fetchCloudData();
 }
 
 function applyRoleRestrictions() {
     const adminEls = document.querySelectorAll('.admin-only');
     adminEls.forEach(el => {
-        el.style.display = (currentUser.role === 'Admin') ? '' : 'none';
+        if (currentUser.role === 'Admin') {
+            // PERBAIKAN: Menghapus class admin agar tombol Tambah muncul sempurna
+            el.classList.remove('admin-only'); 
+        } else {
+            el.style.display = 'none'; // Kunci mutlak untuk Kasir
+        }
     });
+    
     if($('akunProfileInitial')) $('akunProfileInitial').textContent = currentUser.name.substring(0, 2).toUpperCase();
     if($('akunUserRoleText')) $('akunUserRoleText').textContent = currentUser.role;
     if($('headerProfileIcon')) $('headerProfileIcon').textContent = currentUser.name.substring(0, 2).toUpperCase();
 }
 
+// --- SINKRONISASI CLOUD ---
 async function fetchCloudData() {
     try {
         const res = await fetch(WEB_APP_URL);
         const data = await res.json();
         if(data && data.outlet) {
             db = { ...db, ...data };
-            // Pastikan data users tidak tertimpa array kosong dari cloud
             if(!db.users || db.users.length === 0) db.users = [{ id: '1', name: 'Admin', pin: '1985', role: 'Admin' }];
             saveLocal();
             updateUI();
@@ -109,7 +105,6 @@ async function saveToCloud() {
 }
 
 function saveLocal() { localStorage.setItem('arsy_db', JSON.stringify(db)); }
-
 function showToast(msg) {
     const t = $('toast'); 
     if(!t) return;
@@ -117,34 +112,32 @@ function showToast(msg) {
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3000);
 }
-
 function closeModal(id) { $(id).classList.remove('show'); }
-
 function showPage(pageId, btn = null) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     if($(pageId)) $(pageId).classList.add('active');
-    
     if (btn && btn.classList.contains('nav-button')) {
         document.querySelectorAll('.nav-button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
     }
 }
 
+// --- RENDER SEMUA UI ---
 function updateUI() {
     document.querySelectorAll('.dynamic-outlet-name').forEach(el => el.textContent = db.outlet.name);
     if($('akunOutletAddress')) $('akunOutletAddress').textContent = `${db.outlet.address}, ${db.outlet.city}`;
     if($('akunOutletPhone')) $('akunOutletPhone').textContent = db.outlet.phone;
     
-    // Set form outlet
     if($('outName')) {
-        $('outName').value = db.outlet.name; 
-        $('outPhone').value = db.outlet.phone;
-        $('outCity').value = db.outlet.city; 
-        $('outAddress').value = db.outlet.address;
+        $('outName').value = db.outlet.name; $('outPhone').value = db.outlet.phone;
+        $('outCity').value = db.outlet.city; $('outAddress').value = db.outlet.address;
     }
-
+    
     renderUsers();
     calcFinance();
+    renderServices();
+    renderTransactions('Semua');
+    updateDashboardStats();
 }
 
 // --- PENGATURAN OUTLET & USER ---
@@ -153,24 +146,16 @@ function saveOutlet(e) {
     db.outlet = { name:$('outName').value, phone:$('outPhone').value, city:$('outCity').value, address:$('outAddress').value };
     saveToCloud(); updateUI(); showPage('akunPage');
 }
-
 function openUserModal() { $('userName').value=''; $('userPin').value=''; $('userModal').classList.add('show'); }
-
 function saveUser(e) {
     e.preventDefault();
-    const newUser = { id: Date.now().toString(), name: $('userName').value, role: $('userRole').value, pin: $('userPin').value };
-    db.users.push(newUser);
+    db.users.push({ id: Date.now().toString(), name: $('userName').value, role: $('userRole').value, pin: $('userPin').value });
     saveToCloud(); renderUsers(); closeModal('userModal');
 }
-
 function deleteUser(id) {
     if(db.users.length <= 1) return alert("Minimal harus ada 1 karyawan/admin!");
-    if(confirm("Hapus karyawan ini?")) {
-        db.users = db.users.filter(u => u.id !== id);
-        saveToCloud(); renderUsers();
-    }
+    if(confirm("Hapus karyawan ini?")) { db.users = db.users.filter(u => u.id !== id); saveToCloud(); renderUsers(); }
 }
-
 function renderUsers() {
     const c = $('usersListContainer');
     if(!c) return;
@@ -183,14 +168,112 @@ function renderUsers() {
 }
 
 // ==========================================
-// KEUANGAN SISI TITI & DIARI
+// LAUNDRY LOGIC (LAYANAN & TRANSAKSI)
+// ==========================================
+function openServiceModal() { 
+    $('srvName').value=''; $('srvPrice').value=''; 
+    $('serviceModal').classList.add('show'); 
+}
+function saveService(e) {
+    e.preventDefault();
+    if(!db.services) db.services = [];
+    db.services.push({ id: Date.now().toString(), name: $('srvName').value, price: Number($('srvPrice').value), unit: $('srvUnit').value });
+    saveToCloud(); renderServices(); closeModal('serviceModal'); 
+}
+function renderServices() {
+    if(!$('servicesList')) return;
+    const srvs = db.services || [];
+    
+    // PERBAIKAN: Jika layanan kosong, munculkan teks petunjuk
+    if(srvs.length === 0) {
+        $('servicesList').innerHTML = '<div class="empty-state">Belum ada layanan.<br>Klik tombol <b>+ Tambah</b> di atas.</div>';
+        return;
+    }
+    
+    $('servicesList').innerHTML = srvs.map(s => `
+        <div class="service-item">
+            <div class="item-main"><h3>${s.name}</h3><p>${formatRp(s.price)} / ${s.unit}</p></div>
+            <button onclick="delService('${s.id}')" class="btn-del" style="width:auto; margin:0; padding:6px 12px;">Hapus</button>
+        </div>
+    `).join('');
+}
+function delService(id) { 
+    if(confirm("Hapus layanan ini?")) { db.services = db.services.filter(s => s.id !== id); saveToCloud(); renderServices(); } 
+}
+
+function openTransactionModal() {
+    if(!db.services || db.services.length === 0) return alert("Tambahkan layanan terlebih dahulu di menu Layanan!");
+    $('trxService').innerHTML = db.services.map(s => `<option value="${s.id}">${s.name} - ${formatRp(s.price)}/${s.unit}</option>`).join('');
+    $('trxCustomer').value=''; $('trxQty').value=''; 
+    $('transactionModal').classList.add('show');
+}
+function saveTransaction(e) {
+    e.preventDefault();
+    if(!db.transactions) db.transactions = [];
+    const srv = db.services.find(s => s.id === $('trxService').value);
+    const qty = Number($('trxQty').value);
+    db.transactions.unshift({
+        id: 'TRX-' + Date.now(), date: new Date().toISOString(), customer: $('trxCustomer').value,
+        service: srv.name, qty: qty, total: srv.price * qty, status: 'Antrian'
+    });
+    saveToCloud(); renderTransactions('Semua'); closeModal('transactionModal'); updateDashboardStats();
+}
+function renderTransactions(filter = 'Semua') {
+    let trxs = db.transactions || [];
+    if(filter !== 'Semua') trxs = trxs.filter(t => t.status === filter);
+    
+    const html = trxs.map(t => `
+        <div class="transaction-item">
+            <div class="item-main">
+                <h3>${t.customer}</h3><p>${t.service} (${t.qty})</p>
+                <span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span>
+            </div>
+            <div class="item-price" style="text-align:right;">
+                ${formatRp(t.total)}<br><small style="color:var(--muted); font-weight:normal;">${t.date.substring(0,10)}</small><br>
+                <button onclick="updateTrxStatus('${t.id}')" style="margin-top:8px; background:var(--primary); color:white; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold;">Update Status</button>
+            </div>
+        </div>
+    `).join('');
+    
+    if($('allTransactions')) $('allTransactions').innerHTML = html || '<div class="empty-state">Belum ada transaksi di tab ini.</div>';
+    if($('recentTransactions') && filter === 'Semua') {
+        $('recentTransactions').innerHTML = trxs.slice(0,5).map(t => `
+            <div class="transaction-item">
+                <div class="item-main"><h3>${t.customer}</h3><p>${t.service}</p><span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span></div>
+                <div class="item-price">${formatRp(t.total)}</div>
+            </div>
+        `).join('') || '<div class="empty-state">Belum ada transaksi.</div>';
+    }
+}
+function updateTrxStatus(id) {
+    const t = db.transactions.find(x => x.id === id);
+    const statusFlow = ['Antrian', 'Proses', 'Siap Diambil', 'Selesai'];
+    const next = statusFlow[statusFlow.indexOf(t.status) + 1] || 'Selesai';
+    if(confirm(`Ubah status transaksi ${t.customer} menjadi "${next}"?`)) { 
+        t.status = next; saveToCloud(); renderTransactions('Semua'); updateDashboardStats(); 
+    }
+}
+function filterTransactionsTab(status, btn) {
+    document.querySelectorAll('.trans-tab').forEach(b => { b.style.background = '#f4f7fb'; b.style.color = 'var(--muted)'; });
+    btn.style.background = '#e1edff'; btn.style.color = 'var(--primary)';
+    renderTransactions(status);
+}
+function updateDashboardStats() {
+    const today = new Date().toISOString().substring(0,10);
+    const todayTrx = (db.transactions||[]).filter(t => t.date.startsWith(today));
+    if($('todayIncome')) $('todayIncome').textContent = formatRp(todayTrx.reduce((s, t) => s + t.total, 0));
+    if($('todayTransactions')) $('todayTransactions').textContent = todayTrx.length;
+    if($('pendingTransactions')) $('pendingTransactions').textContent = (db.transactions||[]).filter(t => t.status !== 'Selesai').length;
+}
+
+// ==========================================
+// KEUANGAN SISI TITI
 // ==========================================
 function switchFinTab(tab) {
     $('finHomeView').style.display = tab === 'home' ? 'block' : 'none';
     $('finCalcView').style.display = tab === 'calc' ? 'flex' : 'none';
     $('finReportView').style.display = tab === 'report' ? 'block' : 'none';
 }
-
 function calcFinance() {
     if(!$('finMonth')) return;
     const month = $('finMonth').value || new Date().toISOString().substring(0,7);
@@ -215,15 +298,12 @@ function calcFinance() {
         </tr>
     `).join('');
 }
-
 function openFinModal(cat) {
-    $('finCat').value = cat;
-    $('finModalTitle').textContent = `Catat: ${cat}`;
+    $('finCat').value = cat; $('finModalTitle').textContent = `Catat: ${cat}`;
     $('finDate').value = new Date().toISOString().split('T')[0];
     $('finDesc').value = ''; $('finAmount').value = '';
     $('finInputModal').classList.add('show');
 }
-
 function saveFinance(e) {
     e.preventDefault();
     if(!db.expenses) db.expenses = [];
@@ -231,31 +311,19 @@ function saveFinance(e) {
     $('finMonth').value = $('finDate').value.substring(0,7);
     saveToCloud(); calcFinance(); closeModal('finInputModal');
 }
+function delFinance(id) { if(confirm("Hapus pengeluaran ini?")) { db.expenses = db.expenses.filter(x => x.id !== id); saveToCloud(); calcFinance(); } }
 
-function delFinance(id) {
-    if(confirm("Hapus pengeluaran ini?")) { db.expenses = db.expenses.filter(x => x.id !== id); saveToCloud(); calcFinance(); }
-}
-
-// ==========================================
-// DIARI
-// ==========================================
 function openDiariModal() {
-    $('noteDate').value = new Date().toISOString().split('T')[0];
-    $('noteContent').value = '';
+    $('noteDate').value = new Date().toISOString().split('T')[0]; $('noteContent').value = '';
     renderNotes(); $('diariModal').classList.add('show');
 }
-
 function saveNote(e) {
     e.preventDefault();
     if(!db.notes) db.notes = [];
     db.notes.unshift({ id: Date.now().toString(), date: $('noteDate').value, content: $('noteContent').value });
     $('noteContent').value = ''; saveToCloud(); renderNotes(); calcFinance();
 }
-
-function delNote(id) {
-    if(confirm("Hapus catatan ini?")) { db.notes = db.notes.filter(n => n.id !== id); saveToCloud(); renderNotes(); calcFinance(); }
-}
-
+function delNote(id) { if(confirm("Hapus catatan ini?")) { db.notes = db.notes.filter(n => n.id !== id); saveToCloud(); renderNotes(); calcFinance(); } }
 function renderNotes() {
     if(!$('notesListContainer')) return;
     $('notesListContainer').innerHTML = (db.notes || []).map(n => `
@@ -266,9 +334,7 @@ function renderNotes() {
     `).join('');
 }
 
-// ==========================================
-// KALKULATOR TAPE
-// ==========================================
+// --- KALKULATOR TAPE ---
 function updateCalc() { if(!$('calcScreen')) return; $('calcScreen').value = Number(calcInput).toLocaleString('id-ID'); if($('calcOp')) $('calcOp').textContent = calcOp; renderCalcTape(); }
 function calcNum(num) {
     if(isCalcResult) { calcInput = num; isCalcResult = false; }
@@ -307,113 +373,4 @@ function renderCalcTape() {
     let c = $('calcRowsContainer'); c.scrollTop = c.scrollHeight;
 }
 function delCalcRow(i) { db.calcDocs[0].rows.splice(i, 1); saveLocal(); updateCalc(); }
-            
-// ==========================================
-// LAUNDRY LOGIC (TRANSAKSI, LAYANAN, DASHBOARD)
-// ==========================================
-
-function openServiceModal() { 
-    $('srvName').value=''; $('srvPrice').value=''; 
-    $('serviceModal').classList.add('show'); 
-}
-
-function saveService(e) {
-    e.preventDefault();
-    if(!db.services) db.services = [];
-    db.services.push({ id: Date.now().toString(), name: $('srvName').value, price: Number($('srvPrice').value), unit: $('srvUnit').value });
-    saveToCloud(); renderServices(); closeModal('serviceModal'); 
-}
-
-function renderServices() {
-    if(!$('servicesList')) return;
-    $('servicesList').innerHTML = (db.services || []).map(s => `
-        <div class="service-item">
-            <div class="item-main"><h3>${s.name}</h3><p>${formatRp(s.price)} / ${s.unit}</p></div>
-            <button onclick="delService('${s.id}')" class="btn-del" style="width:auto; margin:0; padding:6px 12px;">Hapus</button>
-        </div>
-    `).join('');
-}
-
-function delService(id) { 
-    if(confirm("Hapus layanan ini?")) { db.services = db.services.filter(s => s.id !== id); saveToCloud(); renderServices(); } 
-}
-
-function openTransactionModal() {
-    if(!db.services || db.services.length === 0) return alert("Tambahkan layanan terlebih dahulu di menu Layanan (Ikon Sabun)!");
-    $('trxService').innerHTML = db.services.map(s => `<option value="${s.id}">${s.name} - ${formatRp(s.price)}/${s.unit}</option>`).join('');
-    $('trxCustomer').value=''; $('trxQty').value=''; 
-    $('transactionModal').classList.add('show');
-}
-
-function saveTransaction(e) {
-    e.preventDefault();
-    if(!db.transactions) db.transactions = [];
-    const srv = db.services.find(s => s.id === $('trxService').value);
-    const qty = Number($('trxQty').value);
-    db.transactions.unshift({
-        id: 'TRX-' + Date.now(), date: new Date().toISOString(), customer: $('trxCustomer').value,
-        service: srv.name, qty: qty, total: srv.price * qty, status: 'Antrian'
-    });
-    saveToCloud(); renderTransactions('Semua'); closeModal('transactionModal'); updateDashboardStats();
-}
-
-function renderTransactions(filter = 'Semua') {
-    let trxs = db.transactions || [];
-    if(filter !== 'Semua') trxs = trxs.filter(t => t.status === filter);
     
-    const html = trxs.map(t => `
-        <div class="transaction-item">
-            <div class="item-main">
-                <h3>${t.customer}</h3><p>${t.service} (${t.qty})</p>
-                <span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span>
-            </div>
-            <div class="item-price" style="text-align:right;">
-                ${formatRp(t.total)}<br><small style="color:var(--muted); font-weight:normal;">${t.date.substring(0,10)}</small><br>
-                <button onclick="updateTrxStatus('${t.id}')" style="margin-top:8px; background:var(--primary); color:white; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold;">Update Status</button>
-            </div>
-        </div>
-    `).join('');
-    
-    if($('allTransactions')) $('allTransactions').innerHTML = html || '<div class="empty-state">Belum ada transaksi di tab ini.</div>';
-    
-    if($('recentTransactions') && filter === 'Semua') {
-        $('recentTransactions').innerHTML = trxs.slice(0,5).map(t => `
-            <div class="transaction-item">
-                <div class="item-main"><h3>${t.customer}</h3><p>${t.service}</p><span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span></div>
-                <div class="item-price">${formatRp(t.total)}</div>
-            </div>
-        `).join('') || '<div class="empty-state">Belum ada transaksi.</div>';
-    }
-}
-
-function updateTrxStatus(id) {
-    const t = db.transactions.find(x => x.id === id);
-    const statusFlow = ['Antrian', 'Proses', 'Siap Diambil', 'Selesai'];
-    const next = statusFlow[statusFlow.indexOf(t.status) + 1] || 'Selesai';
-    if(confirm(`Ubah status transaksi ${t.customer} menjadi "${next}"?`)) { 
-        t.status = next; saveToCloud(); renderTransactions('Semua'); updateDashboardStats(); 
-    }
-}
-
-function filterTransactionsTab(status, btn) {
-    document.querySelectorAll('.trans-tab').forEach(b => { b.style.background = '#f4f7fb'; b.style.color = 'var(--muted)'; });
-    btn.style.background = '#e1edff'; btn.style.color = 'var(--primary)';
-    renderTransactions(status);
-}
-
-function updateDashboardStats() {
-    const today = new Date().toISOString().substring(0,10);
-    const todayTrx = (db.transactions||[]).filter(t => t.date.startsWith(today));
-    if($('todayIncome')) $('todayIncome').textContent = formatRp(todayTrx.reduce((s, t) => s + t.total, 0));
-    if($('todayTransactions')) $('todayTransactions').textContent = todayTrx.length;
-    if($('pendingTransactions')) $('pendingTransactions').textContent = (db.transactions||[]).filter(t => t.status !== 'Selesai').length;
-}
-
-// Pasangkan fungsi render ke fungsi updateUI utama yang sudah ada
-const originalUpdateUI = updateUI;
-updateUI = function() {
-    originalUpdateUI();
-    renderServices();
-    renderTransactions('Semua');
-    updateDashboardStats();
-}
