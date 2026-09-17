@@ -308,3 +308,112 @@ function renderCalcTape() {
 }
 function delCalcRow(i) { db.calcDocs[0].rows.splice(i, 1); saveLocal(); updateCalc(); }
             
+// ==========================================
+// LAUNDRY LOGIC (TRANSAKSI, LAYANAN, DASHBOARD)
+// ==========================================
+
+function openServiceModal() { 
+    $('srvName').value=''; $('srvPrice').value=''; 
+    $('serviceModal').classList.add('show'); 
+}
+
+function saveService(e) {
+    e.preventDefault();
+    if(!db.services) db.services = [];
+    db.services.push({ id: Date.now().toString(), name: $('srvName').value, price: Number($('srvPrice').value), unit: $('srvUnit').value });
+    saveToCloud(); renderServices(); closeModal('serviceModal'); 
+}
+
+function renderServices() {
+    if(!$('servicesList')) return;
+    $('servicesList').innerHTML = (db.services || []).map(s => `
+        <div class="service-item">
+            <div class="item-main"><h3>${s.name}</h3><p>${formatRp(s.price)} / ${s.unit}</p></div>
+            <button onclick="delService('${s.id}')" class="btn-del" style="width:auto; margin:0; padding:6px 12px;">Hapus</button>
+        </div>
+    `).join('');
+}
+
+function delService(id) { 
+    if(confirm("Hapus layanan ini?")) { db.services = db.services.filter(s => s.id !== id); saveToCloud(); renderServices(); } 
+}
+
+function openTransactionModal() {
+    if(!db.services || db.services.length === 0) return alert("Tambahkan layanan terlebih dahulu di menu Layanan (Ikon Sabun)!");
+    $('trxService').innerHTML = db.services.map(s => `<option value="${s.id}">${s.name} - ${formatRp(s.price)}/${s.unit}</option>`).join('');
+    $('trxCustomer').value=''; $('trxQty').value=''; 
+    $('transactionModal').classList.add('show');
+}
+
+function saveTransaction(e) {
+    e.preventDefault();
+    if(!db.transactions) db.transactions = [];
+    const srv = db.services.find(s => s.id === $('trxService').value);
+    const qty = Number($('trxQty').value);
+    db.transactions.unshift({
+        id: 'TRX-' + Date.now(), date: new Date().toISOString(), customer: $('trxCustomer').value,
+        service: srv.name, qty: qty, total: srv.price * qty, status: 'Antrian'
+    });
+    saveToCloud(); renderTransactions('Semua'); closeModal('transactionModal'); updateDashboardStats();
+}
+
+function renderTransactions(filter = 'Semua') {
+    let trxs = db.transactions || [];
+    if(filter !== 'Semua') trxs = trxs.filter(t => t.status === filter);
+    
+    const html = trxs.map(t => `
+        <div class="transaction-item">
+            <div class="item-main">
+                <h3>${t.customer}</h3><p>${t.service} (${t.qty})</p>
+                <span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span>
+            </div>
+            <div class="item-price" style="text-align:right;">
+                ${formatRp(t.total)}<br><small style="color:var(--muted); font-weight:normal;">${t.date.substring(0,10)}</small><br>
+                <button onclick="updateTrxStatus('${t.id}')" style="margin-top:8px; background:var(--primary); color:white; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold;">Update Status</button>
+            </div>
+        </div>
+    `).join('');
+    
+    if($('allTransactions')) $('allTransactions').innerHTML = html || '<div class="empty-state">Belum ada transaksi di tab ini.</div>';
+    
+    if($('recentTransactions') && filter === 'Semua') {
+        $('recentTransactions').innerHTML = trxs.slice(0,5).map(t => `
+            <div class="transaction-item">
+                <div class="item-main"><h3>${t.customer}</h3><p>${t.service}</p><span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span></div>
+                <div class="item-price">${formatRp(t.total)}</div>
+            </div>
+        `).join('') || '<div class="empty-state">Belum ada transaksi.</div>';
+    }
+}
+
+function updateTrxStatus(id) {
+    const t = db.transactions.find(x => x.id === id);
+    const statusFlow = ['Antrian', 'Proses', 'Siap Diambil', 'Selesai'];
+    const next = statusFlow[statusFlow.indexOf(t.status) + 1] || 'Selesai';
+    if(confirm(`Ubah status transaksi ${t.customer} menjadi "${next}"?`)) { 
+        t.status = next; saveToCloud(); renderTransactions('Semua'); updateDashboardStats(); 
+    }
+}
+
+function filterTransactionsTab(status, btn) {
+    document.querySelectorAll('.trans-tab').forEach(b => { b.style.background = '#f4f7fb'; b.style.color = 'var(--muted)'; });
+    btn.style.background = '#e1edff'; btn.style.color = 'var(--primary)';
+    renderTransactions(status);
+}
+
+function updateDashboardStats() {
+    const today = new Date().toISOString().substring(0,10);
+    const todayTrx = (db.transactions||[]).filter(t => t.date.startsWith(today));
+    if($('todayIncome')) $('todayIncome').textContent = formatRp(todayTrx.reduce((s, t) => s + t.total, 0));
+    if($('todayTransactions')) $('todayTransactions').textContent = todayTrx.length;
+    if($('pendingTransactions')) $('pendingTransactions').textContent = (db.transactions||[]).filter(t => t.status !== 'Selesai').length;
+}
+
+// Pasangkan fungsi render ke fungsi updateUI utama yang sudah ada
+const originalUpdateUI = updateUI;
+updateUI = function() {
+    originalUpdateUI();
+    renderServices();
+    renderTransactions('Semua');
+    updateDashboardStats();
+}
