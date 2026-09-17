@@ -354,3 +354,36 @@
   <script src="app.js"></script>
 </body>
 </html>
+    <!-- Modal Tambah Layanan Laundry -->
+    <div id="serviceModal" class="modal admin-only">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Tambah Layanan</h2>
+          <button class="close-button" onclick="closeModal('serviceModal')">✕</button>
+        </div>
+        <form onsubmit="saveService(event)">
+          <label>Nama Layanan (Cth: Cuci Setrika)</label><input type="text" id="srvName" required>
+          <label>Harga (Rp)</label><input type="number" id="srvPrice" required>
+          <label>Satuan</label>
+          <select id="srvUnit"><option value="Kg">Per Kg</option><option value="Pcs">Per Pcs</option><option value="Meter">Per Meter</option></select>
+          <button type="submit" class="submit-button" style="margin-top:15px;">Simpan Layanan</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Transaksi Baru -->
+    <div id="transactionModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Transaksi Baru</h2>
+          <button class="close-button" onclick="closeModal('transactionModal')">✕</button>
+        </div>
+        <form onsubmit="saveTransaction(event)">
+          <label>Nama Pelanggan</label><input type="text" id="trxCustomer" placeholder="Masukkan nama pelanggan" required>
+          <label>Layanan</label><select id="trxService" required></select>
+          <label>Jumlah / Berat</label><input type="number" id="trxQty" step="0.1" placeholder="Contoh: 2.5" required>
+          <button type="submit" class="submit-button" style="margin-top:15px;">Buat Transaksi</button>
+        </form>
+      </div>
+    </div>
+    
