@@ -320,7 +320,7 @@ function openTrxDetail(id) {
             <button onclick="showToast('Nota siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Nota</button>
             <button onclick="showToast('Label siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Label</button>
         </div>
-        <button onclick="shareWhatsApp('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:20px;"><i class="fab fa-whatsapp"></i> Kirim Nota Universal (WA / File / App)</button>
+        <button onclick="shareWhatsApp('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:20px;"><i class="fab fa-whatsapp"></i> Kirim Nota</button>
     `;
 
     $('trxDetailContent').innerHTML = html;
