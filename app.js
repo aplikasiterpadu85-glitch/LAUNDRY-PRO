@@ -418,3 +418,39 @@ function renderCalcTape() {
 }
 function delCalcRow(i) { db.calcDocs[0].rows.splice(i, 1); saveLocal(); updateCalc(); }
         
+// ==========================================
+// PENGATURAN NOTA & PRINTER
+// ==========================================
+if (!db.notaSettings) db.notaSettings = { footer: "Terima kasih telah mempercayakan cucian Anda di Arsy Laundry.", terms: "1. Barang yang tidak diambil lebih dari 1 bulan bukan tanggung jawab kami.\n2. Luntur karena sifat kain bukan tanggung jawab kami." };
+
+// Tambahkan pengisian form nota ke fungsi updateUI
+const originalUpdateUI = updateUI;
+updateUI = function() {
+    originalUpdateUI();
+    if($('notaFooter')) $('notaFooter').value = db.notaSettings.footer;
+    if($('notaTerms')) $('notaTerms').value = db.notaSettings.terms;
+};
+
+function saveNota(e) {
+    e.preventDefault();
+    db.notaSettings = { footer: $('notaFooter').value, terms: $('notaTerms').value };
+    saveToCloud();
+    showToast("Pengaturan Nota berhasil disimpan!");
+    showPage('akunPage');
+}
+
+function connectPrinter() {
+    if (navigator.bluetooth) {
+        navigator.bluetooth.requestDevice({ acceptAllDevices: true })
+        .then(device => {
+            $('printerStatus').textContent = "Status: Terhubung ke " + device.name;
+            $('printerStatus').style.color = "var(--success)";
+            showToast("Printer Berhasil Terhubung!");
+        })
+        .catch(err => {
+            console.log(err);
+        });
+    } else {
+        alert("Browser HP Anda tidak mendukung koneksi Bluetooth langsung. Gunakan Google Chrome.");
+    }
+}
