@@ -347,17 +347,21 @@
       </div>
     </div>
 
-    <!-- Modal Login Screen -->
-    <div id="loginModal" class="modal show" style="background:#f4f7fb; z-index:9999;">
-      <div class="modal-content" style="border-radius:18px; margin:auto; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.1); max-width:320px;">
-        <div class="akun-profile-box" style="margin:0 auto 15px;">🔒</div>
-        <h2 class="dynamic-outlet-name" style="font-size:20px; font-weight:800; color:var(--primary);">Arsy Laundry</h2>
-        <p style="color:var(--muted); font-size:12px; margin-bottom:20px;">Silakan masukkan PIN untuk masuk</p>
-        <input type="password" id="loginPin" placeholder="PIN" style="text-align:center; font-size:24px; letter-spacing:8px; margin-bottom:15px; border-radius:10px;" pattern="[0-9]*" inputmode="numeric">
-        <button onclick="loginApp()" class="submit-button">Masuk Aplikasi</button>
-        <p id="loginError" style="color:#dc2626; font-size:12px; margin-top:10px; display:none; font-weight:bold;">PIN Salah atau Tidak Terdaftar!</p>
-      </div>
-    </div>
+    <!-- Modal Login -->
+<div id="loginModal" class="modal" style="background:#f4f7fb; z-index:9999;">
+   <div class="modal-content" style="background:white; border-radius:18px; padding:25px; max-width:320px; width:90%; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+      <div style="font-size:36px; margin-bottom:10px;">🔒</div>
+      <h2 style="font-size:18px; margin-bottom:5px; color:var(--text);">Arsy Laundry</h2>
+      <p style="color:var(--muted); font-size:12px; margin-bottom:20px;">Silahkan masukkan PIN untuk masuk</p>
+      
+      <input type="password" id="loginPin" placeholder="PIN" style="text-align:center; font-size:18px; width:100%; padding:12px; border-radius:8px; border:1px solid var(--border); margin-bottom:15px; outline:none;" pattern="[0-9]*" inputmode="numeric">
+      
+      <button type="button" class="submit-button" onclick="loginApp()" style="width:100%; background:var(--primary); color:white; padding:12px; border-radius:8px; border:none; font-weight:bold; font-size:15px; cursor:pointer;">Masuk Aplikasi</button>
+      
+      <p id="loginError" style="color:#dc2626; font-size:12px; margin-top:12px; display:none;">PIN Salah! Silakan coba lagi.</p>
+   </div>
+</div>
+    
 
     <!-- Toast Notification -->
     <div id="toast" class="toast">Notifikasi</div>
