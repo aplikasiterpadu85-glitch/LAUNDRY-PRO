@@ -77,10 +77,28 @@ function openCustomerDetail(name) {
 function updateDashboardStats() { 
     const todayStr = new Date().toLocaleDateString('id-ID'); 
     const todayTrx = (db.transactions||[]).filter(t => new Date(t.date).toLocaleDateString('id-ID') === todayStr); 
-    if($('todayIncome')) $('todayIncome').textContent = formatRp(todayTrx.reduce((s, t) => s + t.total, 0)); 
+    
+    // HANYA MENGHITUNG YANG LUNAS ATAU DP
+    const income = todayTrx.reduce((s, t) => {
+        if(t.isPaid || t.payStatus === 'Lunas') return s + t.total;
+        if(t.payStatus === 'DP' && t.dpAmount) return s + Number(t.dpAmount);
+        return s;
+    }, 0);
+    
+    if($('todayIncome')) $('todayIncome').textContent = formatRp(income); 
     if($('todayTransactions')) $('todayTransactions').textContent = todayTrx.length; 
     if($('pendingTransactions')) $('pendingTransactions').textContent = (db.transactions||[]).filter(t => t.status !== 'Selesai' && t.status !== 'Batal').length; 
     if($('totalCustomers')) $('totalCustomers').textContent = (db.customers||[]).length; 
+
+    setTimeout(() => {
+        document.querySelectorAll('.stat-card').forEach(el => {
+            const text = el.innerText || "";
+            if(text.includes('Omzet Hari Ini') || text.includes('Transaksi Hari Ini')) el.onclick = () => openDashboardDetail('semua');
+            if(text.includes('Belum Selesai')) el.onclick = () => openDashboardDetail('pending');
+        });
+    }, 500);
+}
+
 
     // Mencari otomatis box dashboard dan mengaktifkan klik
     setTimeout(() => {
@@ -128,65 +146,154 @@ function shareWhatsApp(id) {
     if (navigator.share) navigator.share({ title: 'Nota ' + db.outlet.name, text: text }).catch(() => {}); else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`); 
                             }
 function openTrxDetail(id) { 
-    currentViewTrxId = id; if($('trxMenuDropdown')) $('trxMenuDropdown').style.display = 'none'; 
+    currentViewTrxId = id; if($('trxMenuDropdown'))$('trxMenuDropdown').style.display = 'none'; 
     const t = db.transactions.find(x => x.id === id); if(!t) return; 
     const d = new Date(t.date); const dateStr = d.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) + ', ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}); 
+    
     let color = '#1769e0'; if(t.status==='Proses') color = '#ea8b00'; if(t.status==='Siap Diambil' || t.status==='Selesai') color = '#16a34a'; if(t.status==='Batal') color = '#dc2626'; 
     const flow = ['Antrian', 'Proses', 'Siap Diambil', 'Selesai']; const cIdx = flow.indexOf(t.status); const nextSt = flow[cIdx + 1]; 
+    
     let btnNext = (nextSt && t.status !== 'Batal') ? `<button onclick="updateStatusFromDetail('${t.id}', '${nextSt}')" class="submit-button" style="margin-top:15px; background:${color}; font-size:15px;">${nextSt === 'Proses' ? 'Proses Transaksi' : (nextSt === 'Siap Diambil' ? 'Transaksi Siap Diambil' : 'Selesaikan Transaksi')}</button>` : ''; 
     let btnPrev = (cIdx > 0 && t.status !== 'Batal') ? `<button onclick="updateStatusFromDetail('${t.id}', '${flow[cIdx-1]}')" class="submit-button" style="margin-top:10px; background:white; color:var(--text); border:1px solid var(--border);">Kembalikan Status</button>` : ''; 
     
-    // Tombol Bayar Sekarang Membuka Pop-Up (Bukan Langsung Lunas)
-    let btnPay = ''; 
+    // STATUS PEMBAYARAN & INFO DP
+    let payStatusHtml = t.isPaid || t.payStatus === 'Lunas' ? `<span style="font-size:11px; font-weight:bold; color:#16a34a; background:#dcfce7; padding:4px 8px; border-radius:6px;">Lunas</span>` : (t.payStatus === 'DP' ? `<span style="font-size:11px; font-weight:bold; color:#d97706; background:#fef3c7; padding:4px 8px; border-radius:6px;">DP</span>` : `<span style="font-size:11px; font-weight:bold; color:#ea8b00; background:#fff0d2; padding:4px 8px; border-radius:6px;">Belum Lunas</span>`);
+    
+    let dpInfoHtml = '';
+    if(t.payStatus === 'DP') {
+        dpInfoHtml = `
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <span style="font-size:13px; color:var(--text);">Jumlah Dibayar (DP)</span><span style="font-size:14px; font-weight:bold;">${formatRp(t.dpAmount)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <span style="font-size:13px; color:var(--text);">Sisa Tagihan</span><span style="font-size:14px; font-weight:bold; color:#dc2626;">${formatRp(t.total - (t.dpAmount||0))}</span>
+        </div>`;
+    }
+
+    let btnPay = '', btnCancelPay = ''; 
     if(t.status !== 'Batal') { 
-        btnPay = t.isPaid ? 
-        `<button onclick="openPaymentModal('${t.id}')" class="submit-button" style="background:#f8fafc; color:var(--text); border:1px solid var(--border); margin-bottom:10px;">Ubah Pembayaran (LUNAS)</button>` : 
-        `<button onclick="openPaymentModal('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:10px;">Bayar Tagihan</button>`; 
+        if(t.isPaid || t.payStatus === 'Lunas') {
+            btnPay = `<button onclick="openPaymentModal('${t.id}')" class="submit-button" style="background:#f8fafc; color:var(--text); border:1px solid var(--border); margin-bottom:10px;">Ubah Pembayaran</button>`;
+            btnCancelPay = `<button onclick="cancelPayment('${t.id}')" class="submit-button" style="background:white; color:#dc2626; border:1px solid #fca5a5; margin-bottom:15px;">Batalkan Pembayaran</button>`;
+        } else if(t.payStatus === 'DP') {
+            btnPay = `<button onclick="openPaymentModal('${t.id}')" class="submit-button" style="background:#f59e0b; margin-bottom:10px;">Pelunasan / Ubah DP</button>`;
+            btnCancelPay = `<button onclick="cancelPayment('${t.id}')" class="submit-button" style="background:white; color:#dc2626; border:1px solid #fca5a5; margin-bottom:15px;">Batalkan Pembayaran</button>`;
+        } else {
+            btnPay = `<button onclick="openPaymentModal('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:15px;">Bayar Tagihan</button>`;
+        }
     } 
 
     const srvs = t.services || [{name: t.service, qty: t.qty, unit: t.unit, price: t.price, total: t.total}]; 
-    let srvsHtml = srvs.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px dashed var(--border); margin-top:10px;"><div><h4 style="font-size:14px; margin-bottom:4px; color:var(--text);">${s.name}</h4><p style="font-size:12px; color:var(--muted);">${s.qty} ${s.unit || 'kg'} x ${formatRp(s.price)} : <span style="font-weight:bold;">${formatRp(s.total)}</span></p></div></div>`).join(''); 
+    let srvsHtml = srvs.map((s, idx) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px dashed var(--border); margin-top:10px;">
+            <div><h4 style="font-size:14px; margin-bottom:4px; color:var(--text);">${s.name}</h4><p style="font-size:12px; color:var(--muted);">${s.qty} ${s.unit || 'kg'} x ${formatRp(s.price)} : <span style="font-weight:bold;">${formatRp(s.total)}</span></p></div>
+            ${t.status !== 'Selesai' && t.status !== 'Batal' ? `<button onclick="hapusLayananDariTrx('${t.id}',${idx})" style="background:#fee2e2; color:#dc2626; border:none; width:32px; height:32px; border-radius:6px; cursor:pointer;"><i class="fas fa-trash"></i></button>` : ''}
+        </div>`).join(''); 
     
-    const html = `<div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;"><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">No. Transaksi: <span style="color:var(--text); font-weight:bold;">${t.id}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Status: <span style="color:${color}; font-weight:bold;">${t.status}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Kasir: <span style="color:var(--text); font-weight:bold;">${currentUser.name}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:0;">Masuk: <span style="color:var(--text); font-weight:bold;">${dateStr}</span></p></div><div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;"><p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PELANGGAN</p><div style="display:flex; align-items:center; gap:12px;"><div style="width:40px; height:40px; border-radius:50%; background:#e1edff; color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px;">${t.customer.charAt(0).toUpperCase()}</div><h3 style="font-size:16px;">${t.customer}</h3></div></div><div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;"><p style="font-size:11px; color:var(--muted); font-weight:bold; margin:0;">LAYANAN LAUNDRY</p>${srvsHtml}</div>${btnNext}${btnPrev}<div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-top:20px; margin-bottom:15px;"><p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PEMBAYARAN</p><div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Total Transaksi</span><span style="font-size:15px; font-weight:bold;">${formatRp(t.total)}</span></div><div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Status Pembayaran</span><span style="font-size:11px; font-weight:bold; color:${t.isPaid?'#16a34a':'#ea8b00'}; background:${t.isPaid?'#dcfce7':'#fff0d2'}; padding:4px 8px; border-radius:6px;">${t.isPaid?'Lunas':'Belum Lunas'}</span></div><div style="display:flex; justify-content:space-between; margin-bottom:0px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Metode Pembayaran</span><span style="font-size:13px; font-weight:bold; color:var(--text);">${t.payMethod || '-'}</span></div></div>${btnPay}<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;"><button onclick="showToast('Nota siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Nota</button><button onclick="showToast('Label siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Label</button></div><button onclick="shareWhatsApp('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:20px;"><i class="fab fa-whatsapp"></i> Kirim Nota Universal</button>`; 
+    const html = `<div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;"><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">No. Transaksi: <span style="color:var(--text); font-weight:bold;">${t.id}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Status: <span style="color:${color}; font-weight:bold;">${t.status}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:0;">Masuk: <span style="color:var(--text); font-weight:bold;">${dateStr}</span></p></div>
+    <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <p style="font-size:11px; color:var(--muted); font-weight:bold; margin:0;">LAYANAN LAUNDRY</p>
+            ${(t.status !== 'Selesai' && t.status !== 'Batal') ? `<button onclick="openSelectServiceModal('${t.id}')" style="background:#e1edff; color:var(--primary); font-size:11px; border:none; font-weight:bold; padding:4px 8px; border-radius:6px; cursor:pointer;">+ Tambah Layanan</button>` : ''}
+        </div>
+        ${srvsHtml}
+    </div>${btnNext}${btnPrev}
+    <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-top:20px; margin-bottom:15px;">
+        <p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PEMBAYARAN</p>
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Total Transaksi</span><span style="font-size:15px; font-weight:bold;">${formatRp(t.total)}</span></div>
+        ${dpInfoHtml}
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Status Pembayaran</span>${payStatusHtml}</div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:0px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Metode Pembayaran</span><span style="font-size:13px; font-weight:bold; color:var(--text);">${t.payMethod || '-'}</span></div>
+    </div>${btnPay}${btnCancelPay}
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;"><button onclick="showToast('Nota siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Nota</button><button onclick="showToast('Label siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Label</button></div><button onclick="shareWhatsApp('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:20px;"><i class="fab fa-whatsapp"></i> Kirim Nota Universal</button>`; 
+    
     $('trxDetailContent').innerHTML = html; showPage('trxDetailPage'); 
 }
 
-// FUNGSI MODAL PEMBAYARAN
+
+// --- FUNGSI PEMBAYARAN & DP ---
+function toggleDpInput() {
+    const stat = $('payStatusSelect').value;
+    $('dpInputContainer').style.display = stat === 'DP' ? 'block' : 'none';
+}
+
 function openPaymentModal(id) {
     const t = db.transactions.find(x => x.id === id); if(!t) return;
     currentViewTrxId = id;
     $('payTotalAmount').textContent = formatRp(t.total);
-    $('payStatusSelect').value = t.isPaid ? 'Lunas' : 'Belum Lunas';
+    $('payStatusSelect').value = t.payStatus || (t.isPaid ? 'Lunas' : 'Belum Lunas');
     $('payMethodSelect').value = t.payMethod && t.payMethod !== '-' ? t.payMethod : 'Tunai';
+    $('payDpAmount').value = t.dpAmount || '';
+    toggleDpInput();
     $('paymentModal').classList.add('show');
 }
+
 function confirmPayment() {
     if(!currentViewTrxId) return;
     const t = db.transactions.find(x => x.id === currentViewTrxId); if(!t) return;
-    t.isPaid = $('payStatusSelect').value === 'Lunas';
+    const stat = $('payStatusSelect').value;
+    t.payStatus = stat;
+    t.isPaid = (stat === 'Lunas');
+    t.dpAmount = stat === 'DP' ? Number($('payDpAmount').value) : 0;
     t.payMethod = $('payMethodSelect').value;
+    
     saveToCloud(); closeModal('paymentModal');
     openTrxDetail(currentViewTrxId); renderTransactions('Semua'); updateDashboardStats();
     showToast("Pembayaran Berhasil Disimpan! ✔️");
 }
 
-function toggleTrxMenu() { const m = $('trxMenuDropdown'); if(m) m.style.display = m.style.display === 'none' ? 'block' : 'none'; }
-function cancelTransaction() { if(!currentViewTrxId) return; if(confirm("Yakin membatalkan transaksi ini?")) { const t = db.transactions.find(x => x.id === currentViewTrxId); if(t) { t.status = 'Batal'; saveToCloud(); openTrxDetail(currentViewTrxId); renderTransactions('Semua'); updateDashboardStats(); if($('trxMenuDropdown')) $('trxMenuDropdown').style.display = 'none'; showToast("Transaksi Dibatalkan!"); } } }
-function updateStatusFromDetail(id, newStatus) { const t = db.transactions.find(x => x.id === id); if(t) { t.status = newStatus; saveToCloud(); openTrxDetail(id); renderTransactions('Semua'); updateDashboardStats(); } }
-function filterTransactionsTab(status, btn) { document.querySelectorAll('.trans-tab').forEach(b => { b.style.background = '#f4f7fb'; b.style.color = 'var(--muted);'; }); btn.style.background = '#e1edff'; btn.style.color = 'var(--primary)'; renderTransactions(status); }
-// --- 1. FUNGSI KLIK DASHBOARD ---
-function openDashboardDetail(type) {
-    showPage('transactionsPage', document.querySelectorAll('.nav-button')[1]);
-    document.querySelectorAll('.trans-tab').forEach(b => { b.style.background = '#f4f7fb'; b.style.color = 'var(--muted)'; });
-    
-    if (type === 'pending') {
-        const btn = document.querySelectorAll('.trans-tab')[0];
-        btn.style.background = '#e1edff'; btn.style.color = 'var(--primary)';
-        renderTransactions('Antrian');
-    } else {
-        renderTransactions('Semua');
+function cancelPayment(id) {
+    if(confirm("Batalkan pembayaran untuk transaksi ini? Status akan kembali menjadi Belum Lunas.")) {
+        const t = db.transactions.find(x => x.id === id); if(!t) return;
+        t.isPaid = false; t.payStatus = 'Belum Lunas'; t.dpAmount = 0; t.payMethod = '-';
+        saveToCloud(); openTrxDetail(id); renderTransactions('Semua'); updateDashboardStats();
+        showToast("Pembayaran Dibatalkan!");
     }
 }
+
+// --- FUNGSI HAPUS DAN TAMBAH LAYANAN DI DETAIL TRANSAKSI ---
+let activeTrxId = null; // Menyimpan ID Transaksi jika tambah layanan dari detail
+
+function openSelectServiceModal(trxId = null) { 
+    activeTrxId = (typeof trxId === 'string') ? trxId : null;
+    $('searchServiceInput').value = ''; renderSelectServices(); $('selectServiceModal').classList.add('show'); 
+}
+
+function addTempService() { 
+    const qty = Number($('iqQty').value); if(qty <= 0) return alert('Jumlah tidak valid'); 
+    const price = Number($('iqPrice').value); 
+    const newSrv = { id: $('iqId').value, name: $('iqName').textContent, qty: qty, price: price, unit: $('iqUnit').value, total: qty * price };
+    
+    if (activeTrxId) {
+        // Jika ditambahkan dari dalam halaman detail transaksi yang sudah ada
+        const t = db.transactions.find(x => x.id === activeTrxId);
+        t.services.push(newSrv);
+        t.total = t.services.reduce((sum, s) => sum + s.total, 0);
+        saveToCloud(); openTrxDetail(activeTrxId); renderTransactions('Semua'); updateDashboardStats();
+        closeModal('inputQtyModal'); closeModal('selectServiceModal'); activeTrxId = null;
+        showToast("Layanan ditambahkan ke transaksi!");
+    } else {
+        // Jika ditambahkan saat bikin transaksi baru
+        tempTrxServices.push(newSrv); 
+        closeModal('inputQtyModal'); closeModal('selectServiceModal'); renderTempServices(); 
+    }
+}
+
+function hapusLayananDariTrx(trxId, srvIndex) {
+    if(confirm("Hapus layanan ini dari transaksi?")) {
+        const t = db.transactions.find(x => x.id === trxId); if(!t) return;
+        if(t.services.length <= 1) return alert("Gagal. Transaksi minimal harus memiliki 1 layanan.");
+        
+        t.services.splice(srvIndex, 1);
+        t.total = t.services.reduce((sum, s) => sum + s.total, 0);
+        
+        if(t.payStatus === 'DP' && t.dpAmount > t.total) t.dpAmount = t.total; // Sesuaikan DP jika berlebih
+        
+        saveToCloud(); openTrxDetail(trxId); renderTransactions('Semua'); updateDashboardStats();
+        showToast("Layanan berhasil dihapus!");
+    }
+                                    }
+
 
 // --- 2. FUNGSI DETAIL LAPORAN & FILTER ---
 let currentReportType = 'semua';
