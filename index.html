@@ -469,7 +469,7 @@
       </div>
     </div>
 
-    <!-- Modal Transaksi Baru -->
+        <!-- Modal Transaksi Baru (Multi Layanan) -->
     <div id="transactionModal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
@@ -477,11 +477,61 @@
           <button class="close-button" onclick="closeModal('transactionModal')">✕</button>
         </div>
         <form onsubmit="saveTransaction(event)">
-          <label>Nama Pelanggan</label><input type="text" id="trxCustomer" placeholder="Masukkan nama pelanggan" required>
-          <label>Layanan</label><select id="trxService" required></select>
-          <label>Jumlah / Berat</label><input type="number" id="trxQty" step="0.1" placeholder="Contoh: 2.5" required>
-          <button type="submit" class="submit-button" style="margin-top:15px;">Buat Transaksi</button>
+          <label>Nama Pelanggan</label>
+          <input type="text" id="trxCustomer" placeholder="Contoh: Budi" required>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px; margin-bottom:5px;">
+            <label style="margin:0;">Layanan Laundry</label>
+            <button type="button" onclick="openSelectServiceModal()" style="background:#e1edff; color:var(--primary); border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold;">+ Tambah Layanan</button>
+          </div>
+          
+          <div id="trxTempServices" style="background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:15px; min-height:60px;">
+            <!-- Daftar layanan akan muncul di sini -->
+          </div>
+
+          <label>Status Awal</label>
+          <select id="trxStatus">
+            <option value="Antrian">Antrian</option>
+            <option value="Proses">Proses</option>
+            <option value="Siap Diambil">Siap Diambil</option>
+            <option value="Selesai">Selesai</option>
+          </select>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px; font-size:16px; font-weight:bold;">
+            <span>Total</span>
+            <span id="trxTempTotal" style="color:var(--primary);">Rp 0</span>
+          </div>
+          <button type="submit" class="submit-button" style="margin-top:20px;">Simpan Transaksi</button>
         </form>
       </div>
+    </div>
+
+    <!-- Modal Pilih Layanan (Popup Daftar Layanan) -->
+    <div id="selectServiceModal" class="modal" style="z-index:1000;">
+      <div class="modal-content" style="max-height:80vh; display:flex; flex-direction:column;">
+        <div class="modal-header">
+          <h2>Pilih Layanan</h2>
+          <button type="button" class="close-button" onclick="closeModal('selectServiceModal')">✕</button>
+        </div>
+        <input type="text" id="searchServiceInput" placeholder="Cari layanan..." style="width:100%; padding:10px; margin-bottom:10px; border:1px solid var(--border); border-radius:8px;" onkeyup="renderSelectServices()">
+        <div id="selectServiceList" style="overflow-y:auto; flex:1;"></div>
+      </div>
+    </div>
+
+    <!-- Modal Input Jumlah/Berat -->
+    <div id="inputQtyModal" class="modal" style="z-index:1001;">
+       <div class="modal-content">
+         <div class="modal-header">
+           <h2 id="iqName" style="font-size:16px;">Nama Layanan</h2>
+           <button type="button" class="close-button" onclick="closeModal('inputQtyModal')">✕</button>
+         </div>
+         <input type="hidden" id="iqId"><input type="hidden" id="iqPrice"><input type="hidden" id="iqUnit">
+         <label>Jumlah / Berat</label>
+         <div style="display:flex; gap:10px; align-items:center;">
+           <input type="number" id="iqQty" step="0.1" value="1" style="flex:1;">
+           <span id="iqUnitText" style="font-weight:bold; color:var(--muted);">kg</span>
+         </div>
+         <button type="button" class="submit-button" style="margin-top:15px;" onclick="addTempService()">Tambahkan</button>
+       </div>
     </div>
     
