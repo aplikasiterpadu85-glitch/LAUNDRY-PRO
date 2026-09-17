@@ -603,20 +603,54 @@
             </div>
          </div>
 
-         <!-- Tampilan Detail Laporan (Tersembunyi Awalnya) -->
+                  <!-- Tampilan Detail Laporan (Sesuai Video Arsy Laundry) -->
          <div id="laporanDetailView" style="display:none;">
-            <button onclick="kembaliKeMenuLaporan()" style="background:none; border:none; color:var(--primary); font-weight:bold; font-size:14px; margin-bottom:15px; cursor:pointer; padding:0;">‹ Kembali ke Menu Laporan</button>
-            <h3 id="judulDetailLaporan" style="font-size:16px; margin-bottom:15px;">Detail Laporan</h3>
+            <div style="display:flex; align-items:center; gap:15px; margin-bottom:20px;">
+                <button onclick="kembaliKeMenuLaporan()" style="background:white; border:1px solid var(--border); border-radius:12px; width:40px; height:40px; font-size:24px; color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;">‹</button>
+                <h3 id="judulDetailLaporan" style="font-size:16px; margin:0;">Laporan Transaksi</h3>
+            </div>
             
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
-               <div style="background:white; padding:15px; border-radius:8px; border:1px solid var(--border);">
-                  <p style="font-size:11px; color:var(--muted); margin:0 0 5px 0;">Total Nominal</p>
-                  <h4 id="totalNominalLaporan" style="font-size:16px; color:var(--primary); margin:0;">Rp 0</h4>
+               <div style="background:white; padding:15px; border-radius:12px; border:1px solid var(--border);">
+                  <p style="font-size:11px; color:var(--muted); margin:0 0 5px 0;">Total Pendapatan</p>
+                  <h4 id="repTotalPendapatan" style="font-size:16px; color:var(--primary); margin:0;">Rp 0</h4>
                </div>
-               <div style="background:white; padding:15px; border-radius:8px; border:1px solid var(--border);">
-                  <p style="font-size:11px; color:var(--muted); margin:0 0 5px 0;">Jumlah Transaksi</p>
-                  <h4 id="totalItemLaporan" style="font-size:16px; color:var(--text); margin:0;">0</h4>
+               <div style="background:white; padding:15px; border-radius:12px; border:1px solid var(--border);">
+                  <p style="font-size:11px; color:var(--muted); margin:0 0 5px 0;">Total Transaksi</p>
+                  <h4 id="repTotalTransaksi" style="font-size:16px; color:var(--text); margin:0;">0</h4>
                </div>
+               <div style="background:white; padding:15px; border-radius:12px; border:1px solid var(--border);">
+                  <p style="font-size:11px; color:var(--muted); margin:0 0 5px 0;">Selesai / Lunas</p>
+                  <h4 id="repSelesaiLunas" style="font-size:16px; color:var(--text); margin:0;">0</h4>
+               </div>
+               <div style="background:white; padding:15px; border-radius:12px; border:1px solid var(--border);">
+                  <p style="font-size:11px; color:var(--muted); margin:0 0 5px 0;">Batal</p>
+                  <h4 id="repBatal" style="font-size:16px; color:var(--text); margin:0;">0</h4>
+               </div>
+            </div>
+
+            <h4 style="font-size:14px; margin-bottom:10px; margin-top:20px;">Filter Laporan</h4>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+                <select id="filterMetode" onchange="terapkanFilterLaporan()" style="padding:12px; border-radius:8px; border:1px solid var(--border); font-size:14px; width:100%; background:white;">
+                    <option value="semua">Semua Metode Pembayaran</option>
+                    <option value="Tunai">Tunai</option><option value="GoPay">GoPay</option><option value="Dana">Dana</option><option value="ShopeePay">ShopeePay</option><option value="QRIS">QRIS</option><option value="Transfer">Transfer</option><option value="Deposit">Deposit</option>
+                </select>
+                <input type="date" id="filterTanggal" onchange="terapkanFilterLaporan()" style="padding:12px; border-radius:8px; border:1px solid var(--border); font-size:14px; width:100%; background:white;">
+                <select id="filterStatus" onchange="terapkanFilterLaporan()" style="padding:12px; border-radius:8px; border:1px solid var(--border); font-size:14px; width:100%; background:white;">
+                    <option value="semua">Semua Status</option>
+                    <option value="Belum Lunas">Belum Lunas</option>
+                    <option value="DP">DP</option>
+                    <option value="Lunas">Lunas</option>
+                </select>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h4 style="font-size:14px; margin:0;">Data Transaksi</h4>
+                <span id="repJmlData" style="font-size:12px; color:var(--muted);">0 transaksi</span>
+            </div>
+            <div id="listDetailLaporan" style="display:flex; flex-direction:column; gap:10px;"></div>
+         </div>
+        
             </div>
 
             <!-- Area untuk menampilkan list rincian transaksi -->
