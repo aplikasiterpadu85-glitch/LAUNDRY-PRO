@@ -73,7 +73,7 @@
       <div class="quick-actions">
         <button class="quick-button" onclick="openTransactionModal()"><span>➕</span><b>Transaksi Baru</b></button>
         <button class="quick-button" onclick="showPage('servicesPage')"><span>🧼</span><b>Layanan</b></button>
-        <button class="quick-button admin-only" onclick="showPage('reportsPage')"><span>📊</span><b>Laporan</b></button>
+        <button class="quick-button admin-only" onclick="showPage('keuanganPage')"><span>📊</span><b>Keuangan</b></button>
         <button class="quick-button" onclick="showPage('akunPage')"><span>⚙️</span><b>Akun & Nota</b></button>
       </div>
 
@@ -660,7 +660,7 @@
     </section>
 
 
-    <!-- 💳 MODAL PEMBAYARAN (Pilihan Tunai, GoPay, dll) -->
+    <!-- 💳 MODAL PEMBAYARAN (Pilihan Tunai, GoPay, DP, dll) -->
     <div id="paymentModal" class="modal" style="z-index:1005;">
       <div class="modal-content" style="background:#f4f7fb; max-height:80vh; overflow-y:auto;">
         <div class="modal-header" style="margin-bottom:15px;">
@@ -672,24 +672,23 @@
             <h3 id="payTotalAmount" style="color:var(--primary); font-size:24px; margin-bottom:20px;">Rp 0</h3>
             
             <label style="font-size:12px; font-weight:bold;">Status Pembayaran</label>
-            <select id="payStatusSelect" style="margin-bottom:15px; width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); font-size:14px;">
+            <select id="payStatusSelect" onchange="toggleDpInput()" style="margin-bottom:15px; width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); font-size:14px;">
                 <option value="Lunas">Lunas</option>
+                <option value="DP">DP</option>
                 <option value="Belum Lunas">Belum Lunas</option>
             </select>
             
+            <div id="dpInputContainer" style="display:none; margin-bottom:15px;">
+                <label style="font-size:12px; font-weight:bold;">Jumlah Pembayaran (DP)</label>
+                <input type="number" id="payDpAmount" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); font-size:14px;" placeholder="Contoh: 20000">
+            </div>
+            
             <label style="font-size:12px; font-weight:bold;">Metode Pembayaran</label>
             <select id="payMethodSelect" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); font-size:14px;">
-                <option value="Tunai">Tunai</option>
-                <option value="GoPay">GoPay</option>
-                <option value="Dana">Dana</option>
-                <option value="ShopeePay">ShopeePay</option>
-                <option value="QRIS">QRIS</option>
-                <option value="Transfer">Transfer</option>
-                <option value="Deposit">Deposit</option>
+                <option value="Tunai">Tunai</option><option value="GoPay">GoPay</option><option value="Dana">Dana</option><option value="ShopeePay">ShopeePay</option><option value="QRIS">QRIS</option><option value="Transfer">Transfer</option><option value="Deposit">Deposit</option>
             </select>
         </div>
         <button class="submit-button" onclick="confirmPayment()" style="margin-top:20px; background:#16a34a; font-size:16px;">Simpan Pembayaran</button>
       </div>
     </div>
-
     
