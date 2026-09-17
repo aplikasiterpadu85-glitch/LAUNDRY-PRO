@@ -566,49 +566,65 @@
       .dashboard-card:active { transform: scale(0.95); }
     </style>
 
-    <!-- 📊 HALAMAN LAPORAN (Sesuai Arsy Laundry) -->
+        <!-- 📊 HALAMAN LAPORAN -->
     <section id="laporanPage" class="page">
       <div class="report-header">
         <h2 style="font-size:16px;">Laporan</h2>
         <p style="font-size:12px; color:var(--muted); margin:0;">Ringkasan aktivitas laundry</p>
       </div>
       <div style="padding:15px; padding-bottom:100px;">
-         <div style="background:white; border-radius:12px; border:1px solid var(--border); overflow:hidden;">
-            <div onclick="showToast('Fitur Detail Laporan akan aktif di update berikutnya!')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid var(--border); cursor:pointer;">
+         
+         <!-- Menu Laporan -->
+         <div id="laporanMenuView" style="background:white; border-radius:12px; border:1px solid var(--border); overflow:hidden;">
+            <div onclick="bukaDetailLaporan('omzet')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid var(--border); cursor:pointer;">
                 <div style="width:40px; height:40px; background:#e1edff; color:#1769e0; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-right:15px;">💰</div>
-                <div style="flex:1;">
-                    <h3 style="font-size:14px; margin-bottom:2px;">Laporan Omzet Transaksi</h3>
-                    <p style="font-size:11px; color:var(--muted); margin:0;">Omzet seluruh transaksi laundry</p>
-                </div>
+                <div style="flex:1;"><h3 style="font-size:14px; margin-bottom:2px;">Laporan Omzet Transaksi</h3><p style="font-size:11px; color:var(--muted); margin:0;">Omzet seluruh transaksi laundry</p></div>
                 <div style="color:var(--muted);">›</div>
             </div>
-            <div onclick="showToast('Fitur Detail Laporan akan aktif di update berikutnya!')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid var(--border); cursor:pointer;">
+            <div onclick="bukaDetailLaporan('masuk')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid var(--border); cursor:pointer;">
                 <div style="width:40px; height:40px; background:#fce7f3; color:#db2777; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-right:15px;">📥</div>
-                <div style="flex:1;">
-                    <h3 style="font-size:14px; margin-bottom:2px;">Laporan Transaksi Masuk</h3>
-                    <p style="font-size:11px; color:var(--muted); margin:0;">Semua data transaksi laundry</p>
-                </div>
+                <div style="flex:1;"><h3 style="font-size:14px; margin-bottom:2px;">Laporan Transaksi Masuk</h3><p style="font-size:11px; color:var(--muted); margin:0;">Semua data transaksi laundry</p></div>
                 <div style="color:var(--muted);">›</div>
             </div>
-            <div onclick="showToast('Fitur Detail Laporan akan aktif di update berikutnya!')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid var(--border); cursor:pointer;">
+            <div onclick="bukaDetailLaporan('lunas')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid var(--border); cursor:pointer;">
                 <div style="width:40px; height:40px; background:#fef08a; color:#ca8a04; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-right:15px;">💲</div>
-                <div style="flex:1;">
-                    <h3 style="font-size:14px; margin-bottom:2px;">Laporan Transaksi Lunas</h3>
-                    <p style="font-size:11px; color:var(--muted); margin:0;">Transaksi yang sudah lunas</p>
-                </div>
+                <div style="flex:1;"><h3 style="font-size:14px; margin-bottom:2px;">Laporan Transaksi Lunas</h3><p style="font-size:11px; color:var(--muted); margin:0;">Transaksi yang sudah lunas</p></div>
                 <div style="color:var(--muted);">›</div>
             </div>
-            <div onclick="showToast('Fitur Detail Laporan akan aktif di update berikutnya!')" style="display:flex; align-items:center; padding:15px; cursor:pointer;">
+            <div onclick="bukaDetailLaporan('selesai')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid var(--border); cursor:pointer;">
                 <div style="width:40px; height:40px; background:#dcfce7; color:#16a34a; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-right:15px;">✅</div>
-                <div style="flex:1;">
-                    <h3 style="font-size:14px; margin-bottom:2px;">Laporan Transaksi Selesai</h3>
-                    <p style="font-size:11px; color:var(--muted); margin:0;">Transaksi berstatus selesai</p>
-                </div>
+                <div style="flex:1;"><h3 style="font-size:14px; margin-bottom:2px;">Laporan Transaksi Selesai</h3><p style="font-size:11px; color:var(--muted); margin:0;">Transaksi berstatus selesai</p></div>
+                <div style="color:var(--muted);">›</div>
+            </div>
+            <div onclick="bukaDetailLaporan('batal')" style="display:flex; align-items:center; padding:15px; cursor:pointer;">
+                <div style="width:40px; height:40px; background:#fee2e2; color:#dc2626; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-right:15px;">❌</div>
+                <div style="flex:1;"><h3 style="font-size:14px; margin-bottom:2px;">Laporan Transaksi Batal</h3><p style="font-size:11px; color:var(--muted); margin:0;">Transaksi yang dibatalkan</p></div>
                 <div style="color:var(--muted);">›</div>
             </div>
          </div>
+
+         <!-- Tampilan Detail Laporan (Tersembunyi Awalnya) -->
+         <div id="laporanDetailView" style="display:none;">
+            <button onclick="kembaliKeMenuLaporan()" style="background:none; border:none; color:var(--primary); font-weight:bold; font-size:14px; margin-bottom:15px; cursor:pointer; padding:0;">‹ Kembali ke Menu Laporan</button>
+            <h3 id="judulDetailLaporan" style="font-size:16px; margin-bottom:15px;">Detail Laporan</h3>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+               <div style="background:white; padding:15px; border-radius:8px; border:1px solid var(--border);">
+                  <p style="font-size:11px; color:var(--muted); margin:0 0 5px 0;">Total Nominal</p>
+                  <h4 id="totalNominalLaporan" style="font-size:16px; color:var(--primary); margin:0;">Rp 0</h4>
+               </div>
+               <div style="background:white; padding:15px; border-radius:8px; border:1px solid var(--border);">
+                  <p style="font-size:11px; color:var(--muted); margin:0 0 5px 0;">Jumlah Transaksi</p>
+                  <h4 id="totalItemLaporan" style="font-size:16px; color:var(--text); margin:0;">0</h4>
+               </div>
+            </div>
+
+            <!-- Area untuk menampilkan list rincian transaksi -->
+            <div id="listDetailLaporan" style="display:flex; flex-direction:column; gap:10px;"></div>
+         </div>
       </div>
     </section>
+
 
     <!-- 💳 MODAL PEMBAYARAN (Pilihan Tunai, GoPay, dll) -->
     <div id="paymentModal" class="modal" style="z-index:1005;">
