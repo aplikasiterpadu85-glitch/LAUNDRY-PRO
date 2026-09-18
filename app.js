@@ -274,12 +274,40 @@ function openPaymentModal(id) {
 function confirmPayment() {
     if(!currentViewTrxId) return;
     const t = db.transactions.find(x => x.id === currentViewTrxId); if(!t) return;
-    t.isPaid = $('payStatusSelect').value === 'Lunas';
+    
+    const status = $('payStatusSelect').value;
+    const dibayar = Number($('payAmountInput').value) || 0;
+
+    t.payDate = new Date().toISOString(); // Catat waktu pembayaran hari ini
+
+    if (status === 'Lunas') {
+        if (dibayar > 0 && dibayar < t.total) {
+            alert("Uang yang dibayar kurang dari total tagihan!");
+            return;
+        }
+        t.isPaid = true;
+        t.payStatus = 'Lunas';
+        t.dpAmount = dibayar;
+    } else if (status === 'DP') {
+        if (dibayar <= 0 || dibayar >= t.total) {
+            alert("Jumlah DP harus lebih dari 0 dan kurang dari total tagihan!");
+            return;
+        }
+        t.isPaid = false;
+        t.payStatus = 'DP';
+        t.dpAmount = dibayar;
+    } else {
+        t.isPaid = false;
+        t.payStatus = 'Belum Lunas';
+        t.dpAmount = 0;
+    }
+    
     t.payMethod = $('payMethodSelect').value;
     saveToCloud(); closeModal('paymentModal');
     openTrxDetail(currentViewTrxId); renderTransactions('Semua'); updateDashboardStats();
     showToast("Pembayaran Berhasil Disimpan! ✔️");
 }
+
 
 function toggleTrxMenu() { const m = $('trxMenuDropdown'); if(m) m.style.display = m.style.display === 'none' ? 'block' : 'none'; }
 function cancelTransaction() { if(!currentViewTrxId) return; if(confirm("Yakin membatalkan transaksi ini?")) { const t = db.transactions.find(x => x.id === currentViewTrxId); if(t) { t.status = 'Batal'; saveToCloud(); openTrxDetail(currentViewTrxId); renderTransactions('Semua'); updateDashboardStats(); if($('trxMenuDropdown')) $('trxMenuDropdown').style.display = 'none'; showToast("Transaksi Dibatalkan!"); } } }
