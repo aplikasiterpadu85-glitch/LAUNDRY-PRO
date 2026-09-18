@@ -75,6 +75,19 @@ function addTempService() { const qty = Number($('iqQty').value); if(qty <= 0) r
 function removeTempService(i) { tempTrxServices.splice(i,1); renderTempServices(); }
 function saveTransaction(e) { e.preventDefault(); if(tempTrxServices.length === 0) return alert("Tambahkan minimal 1 layanan!"); if(!db.transactions) db.transactions = []; if(!db.customers) db.customers = []; const customerName = $('trxCustomer').value.trim(); const total = tempTrxServices.reduce((sum, s) => sum + s.total, 0); let cust = db.customers.find(c => c.name.toLowerCase() === customerName.toLowerCase()); if(!cust) db.customers.push({ id: Date.now().toString(), name: customerName, totalTrx: 1 }); else cust.totalTrx = (cust.totalTrx || 0) + 1; const newTrxId = 'TRX/' + Date.now().toString().slice(3); db.transactions.unshift({ id: newTrxId, date: new Date().toISOString(), customer: customerName, services: [...tempTrxServices], total: total, status: $('trxStatus').value, isPaid: false, payMethod: '-' }); saveToCloud(); renderTransactions('Semua'); renderCustomers(); updateDashboardStats(); closeModal('transactionModal'); showToast("Transaksi Berhasil Dibuat! ✔️"); setTimeout(() => { openTrxDetail(newTrxId); }, 200); }
 function renderTransactions(filter = 'Semua') { let trxs = db.transactions || []; if(filter !== 'Semua') trxs = trxs.filter(t => t.status === filter); const html = trxs.map(t => { return `<div class="transaction-item" onclick="openTrxDetail('${t.id}')" style="cursor:pointer;"><div class="item-main"><h3 style="margin-bottom:2px;">${t.customer}</h3><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">${t.id}</p><span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span></div><div class="item-price" style="text-align:right;">${formatRp(t.total)}<br><small style="color:${t.isPaid?'#16a34a':'#ea8b00'}; font-weight:bold;">${t.isPaid?'Lunas':'Belum Lunas'}</small></div></div>`; }).join(''); if($('allTransactions')) $('allTransactions').innerHTML = html || '<div class="empty-state">Belum ada transaksi di tab ini.</div>'; if($('recentTransactions') && filter === 'Semua') { $('recentTransactions').innerHTML = trxs.slice(0,5).map(t => `<div class="transaction-item" onclick="openTrxDetail('${t.id}')" style="cursor:pointer;"><div class="item-main"><h3 style="margin-bottom:4px;">${t.customer}</h3><span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span></div><div class="item-price">${formatRp(t.total)}</div></div>`).join('') || '<div class="empty-state">Belum ada transaksi.</div>'; } }
+function openDashboardDetail(type) {
+    if(type === 'omset' || type === 'transaksi') {
+        showPage('transactionsPage');
+        const tabAntrian = document.querySelector('.trans-tab');
+        if(tabAntrian) filterTransactionsTab('Semua', tabAntrian);
+        renderTransactions('Semua');
+    } else if(type === 'pending') {
+        showPage('transactionsPage');
+        const tabAntrian = document.querySelector('.trans-tab');
+        if(tabAntrian) filterTransactionsTab('Antrian', tabAntrian);
+        renderTransactions('Antrian');
+    }
+}
 
 // --- WA NOTA ASLI ARSY LAUNDRY FIX ---
 function shareWhatsApp(id) { 
