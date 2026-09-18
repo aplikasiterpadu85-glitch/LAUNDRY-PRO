@@ -86,8 +86,11 @@ function shareWhatsApp(id) {
     const text = `*${db.outlet.name}*\n${db.outlet.address}, ${db.outlet.city}\n${db.outlet.phone}\n-------------------------\nPelanggan: *${t.customer}*\nNo. Transaksi: ${t.id}\nWaktu: ${wkt}\n-------------------------\nLayanan:\n${srvsText}-------------------------\nTotal: *${formatRp(t.total)}*\nStatus: *${t.isPaid ? 'Lunas' : 'Belum Lunas'}*`; 
     if (navigator.share) navigator.share({ title: 'Nota ' + db.outlet.name, text: text }).catch(() => {}); else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`); 
                             }
+let editingTrxId = null; // Tambahkan penanda ini di luar fungsi
+
+// GANTI FUNGSI INI
 function openTrxDetail(id) { 
-    currentViewTrxId = id; if($('trxMenuDropdown')) $('trxMenuDropdown').style.display = 'none'; 
+    currentViewTrxId = id; if($('trxMenuDropdown'))$('trxMenuDropdown').style.display = 'none'; 
     const t = db.transactions.find(x => x.id === id); if(!t) return; 
     const d = new Date(t.date); const dateStr = d.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) + ', ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}); 
     let color = '#1769e0'; if(t.status==='Proses') color = '#ea8b00'; if(t.status==='Siap Diambil' || t.status==='Selesai') color = '#16a34a'; if(t.status==='Batal') color = '#dc2626'; 
@@ -95,19 +98,115 @@ function openTrxDetail(id) {
     let btnNext = (nextSt && t.status !== 'Batal') ? `<button onclick="updateStatusFromDetail('${t.id}', '${nextSt}')" class="submit-button" style="margin-top:15px; background:${color}; font-size:15px;">${nextSt === 'Proses' ? 'Proses Transaksi' : (nextSt === 'Siap Diambil' ? 'Transaksi Siap Diambil' : 'Selesaikan Transaksi')}</button>` : ''; 
     let btnPrev = (cIdx > 0 && t.status !== 'Batal') ? `<button onclick="updateStatusFromDetail('${t.id}', '${flow[cIdx-1]}')" class="submit-button" style="margin-top:10px; background:white; color:var(--text); border:1px solid var(--border);">Kembalikan Status</button>` : ''; 
     
-    // Tombol Bayar Sekarang Membuka Pop-Up (Bukan Langsung Lunas)
+    // Logika Tombol Pembayaran & Batal Bayar
     let btnPay = ''; 
     if(t.status !== 'Batal') { 
-        btnPay = t.isPaid ? 
-        `<button onclick="openPaymentModal('${t.id}')" class="submit-button" style="background:#f8fafc; color:var(--text); border:1px solid var(--border); margin-bottom:10px;">Ubah Pembayaran (LUNAS)</button>` : 
-        `<button onclick="openPaymentModal('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:10px;">Bayar Tagihan</button>`; 
+        if(t.isPaid || t.payStatus === 'Lunas' || t.payStatus === 'DP') {
+            btnPay = `
+            <button onclick="openPaymentModal('${t.id}')" class="submit-button" style="background:#f8fafc; color:var(--text); border:1px solid var(--border); margin-bottom:10px;">Ubah Pembayaran</button>
+            <button onclick="batalkanPembayaran('${t.id}')" class="submit-button" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; margin-bottom:10px;">Batalkan Pembayaran</button>`;
+        } else {
+            btnPay = `<button onclick="openPaymentModal('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:10px;">Bayar Tagihan</button>`;
+        }
     } 
 
     const srvs = t.services || [{name: t.service, qty: t.qty, unit: t.unit, price: t.price, total: t.total}]; 
-    let srvsHtml = srvs.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px dashed var(--border); margin-top:10px;"><div><h4 style="font-size:14px; margin-bottom:4px; color:var(--text);">${s.name}</h4><p style="font-size:12px; color:var(--muted);">${s.qty} ${s.unit || 'kg'} x ${formatRp(s.price)} : <span style="font-weight:bold;">${formatRp(s.total)}</span></p></div></div>`).join(''); 
     
-    const html = `<div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;"><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">No. Transaksi: <span style="color:var(--text); font-weight:bold;">${t.id}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Status: <span style="color:${color}; font-weight:bold;">${t.status}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Kasir: <span style="color:var(--text); font-weight:bold;">${currentUser.name}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:0;">Masuk: <span style="color:var(--text); font-weight:bold;">${dateStr}</span></p></div><div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;"><p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PELANGGAN</p><div style="display:flex; align-items:center; gap:12px;"><div style="width:40px; height:40px; border-radius:50%; background:#e1edff; color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px;">${t.customer.charAt(0).toUpperCase()}</div><h3 style="font-size:16px;">${t.customer}</h3></div></div><div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;"><p style="font-size:11px; color:var(--muted); font-weight:bold; margin:0;">LAYANAN LAUNDRY</p>${srvsHtml}</div>${btnNext}${btnPrev}<div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-top:20px; margin-bottom:15px;"><p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PEMBAYARAN</p><div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Total Transaksi</span><span style="font-size:15px; font-weight:bold;">${formatRp(t.total)}</span></div><div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Status Pembayaran</span><span style="font-size:11px; font-weight:bold; color:${t.isPaid?'#16a34a':'#ea8b00'}; background:${t.isPaid?'#dcfce7':'#fff0d2'}; padding:4px 8px; border-radius:6px;">${t.isPaid?'Lunas':'Belum Lunas'}</span></div><div style="display:flex; justify-content:space-between; margin-bottom:0px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Metode Pembayaran</span><span style="font-size:13px; font-weight:bold; color:var(--text);">${t.payMethod || '-'}</span></div></div>${btnPay}<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;"><button onclick="showToast('Nota siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Nota</button><button onclick="showToast('Label siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Label</button></div><button onclick="shareWhatsApp('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:20px;"><i class="fab fa-whatsapp"></i> Kirim Nota Universal</button>`; 
+    // Logika Daftar Layanan yang Bisa Diedit
+    let srvsHtml = srvs.map((s, idx) => `
+        <div style="padding-top:12px; border-top:1px dashed var(--border); margin-top:10px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                <h4 style="font-size:14px; color:var(--text);">${s.name}</h4>
+                <div style="font-weight:bold; font-size:14px;">${formatRp(s.total)}</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:12px; color:var(--muted); background:#f8fafc; padding:4px 8px; border-radius:6px; border:1px solid var(--border); display:flex; align-items:center; gap:8px;">
+                    <span onclick="editTrxServiceQty('${t.id}', ${idx})" style="color:var(--primary); font-weight:bold; cursor:pointer;"><i class="fas fa-edit"></i> Qty</span>
+                    <span>|</span>
+                    <span>${s.qty} ${s.unit || 'kg'} x ${formatRp(s.price)}</span>
+                </div>
+                <button onclick="removeTrxService('${t.id}', ${idx})" style="background:transparent; color:#ef4444; border:none; font-size:12px; font-weight:bold;"><i class="fas fa-trash"></i> Hapus</button>
+            </div>
+        </div>
+    `).join(''); 
+    
+    const html = `<div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;"><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">No. Transaksi: <span style="color:var(--text); font-weight:bold;">${t.id}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Status: <span style="color:${color}; font-weight:bold;">${t.status}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Kasir: <span style="color:var(--text); font-weight:bold;">${currentUser.name}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:0;">Masuk: <span style="color:var(--text); font-weight:bold;">${dateStr}</span></p></div><div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;"><p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PELANGGAN</p><div style="display:flex; align-items:center; gap:12px;"><div style="width:40px; height:40px; border-radius:50%; background:#e1edff; color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px;">${t.customer.charAt(0).toUpperCase()}</div><h3 style="font-size:16px;">${t.customer}</h3></div></div>
+    
+    <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <p style="font-size:11px; color:var(--muted); font-weight:bold; margin:0;">LAYANAN LAUNDRY</p>
+            <button onclick="editingTrxId='${t.id}'; openSelectServiceModal()" style="background:#e1edff; color:var(--primary); border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:bold;">+ Tambah</button>
+        </div>
+        ${srvsHtml}
+    </div>
+    
+    ${btnNext}${btnPrev}<div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-top:20px; margin-bottom:15px;"><p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PEMBAYARAN</p><div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Total Transaksi</span><span style="font-size:15px; font-weight:bold;">${formatRp(t.total)}</span></div><div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Status Pembayaran</span><span style="font-size:11px; font-weight:bold; color:${t.isPaid?'#16a34a':(t.payStatus==='DP'?'#d97706':'#ea8b00')}; background:${t.isPaid?'#dcfce7':(t.payStatus==='DP'?'#fef3c7':'#fff0d2')}; padding:4px 8px; border-radius:6px;">${t.isPaid?'Lunas':(t.payStatus==='DP'?'DP':'Belum Lunas')}</span></div><div style="display:flex; justify-content:space-between; margin-bottom:0px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Metode Pembayaran</span><span style="font-size:13px; font-weight:bold; color:var(--text);">${t.payMethod || '-'}</span></div></div>${btnPay}<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;"><button onclick="showToast('Nota siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Nota</button><button onclick="showToast('Label siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Label</button></div><button onclick="shareWhatsApp('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:20px;"><i class="fab fa-whatsapp"></i> Kirim Nota Universal</button>`; 
     $('trxDetailContent').innerHTML = html; showPage('trxDetailPage'); 
+}
+
+// GANTI FUNGSI INI
+function addTempService() { 
+    const qty = Number($('iqQty').value); 
+    if(qty <= 0) return alert('Jumlah tidak valid'); 
+    const price = Number($('iqPrice').value); 
+    const newSrv = { id: $('iqId').value, name: $('iqName').textContent, qty: qty, price: price, unit:$('iqUnit').value, total: qty * price };
+    
+    // Cek apakah sedang menambahkan layanan ke transaksi lama atau transaksi baru
+    if (typeof editingTrxId !== 'undefined' && editingTrxId !== null) {
+        const t = db.transactions.find(x => x.id === editingTrxId);
+        if(t) {
+            t.services.push(newSrv);
+            t.total = t.services.reduce((sum, srv) => sum + srv.total, 0);
+            saveToCloud(); openTrxDetail(editingTrxId); updateDashboardStats();
+            showToast("Layanan baru ditambahkan!");
+        }
+        editingTrxId = null; // Reset penanda
+    } else {
+        tempTrxServices.push(newSrv); 
+    }
+    closeModal('inputQtyModal'); closeModal('selectServiceModal'); 
+    renderTempServices(); 
+}
+
+// TAMBAHKAN 3 FUNGSI BARU INI DI BAWAHNYA
+function editTrxServiceQty(trxId, idx) {
+    const t = db.transactions.find(x => x.id === trxId);
+    if(!t) return;
+    const s = t.services[idx];
+    const newQty = prompt(`Ubah jumlah/berat untuk ${s.name} (${s.unit}):`, s.qty);
+    if(newQty !== null && newQty !== "" && !isNaN(newQty)) {
+        s.qty = Number(newQty);
+        s.total = s.qty * s.price;
+        t.total = t.services.reduce((sum, srv) => sum + srv.total, 0); // Hitung ulang total transaksi
+        saveToCloud(); openTrxDetail(trxId); updateDashboardStats();
+        showToast("Jumlah layanan diubah!");
+    }
+}
+
+function removeTrxService(trxId, idx) {
+    const t = db.transactions.find(x => x.id === trxId);
+    if(!t) return;
+    if(t.services.length <= 1) return alert("Transaksi harus memiliki minimal 1 layanan! Jika ingin dibatalkan, gunakan menu Batalkan Transaksi di pojok kanan atas.");
+    if(confirm("Hapus layanan ini dari transaksi?")) {
+        t.services.splice(idx, 1);
+        t.total = t.services.reduce((sum, srv) => sum + srv.total, 0); // Hitung ulang total
+        saveToCloud(); openTrxDetail(trxId); updateDashboardStats();
+        showToast("Layanan dihapus!");
+    }
+}
+
+function batalkanPembayaran(id) {
+    if(confirm("Yakin ingin membatalkan pembayaran ini? Status akan kembali menjadi Belum Lunas.")) {
+        const t = db.transactions.find(x => x.id === id);
+        if(t) {
+            t.isPaid = false;
+            t.payStatus = 'Belum Lunas';
+            t.payMethod = '-';
+            t.dpAmount = 0;
+            saveToCloud(); openTrxDetail(id); renderTransactions('Semua'); updateDashboardStats();
+            showToast("Pembayaran dibatalkan!");
+        }
+    }
 }
 
 // FUNGSI MODAL PEMBAYARAN
