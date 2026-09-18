@@ -160,7 +160,13 @@ function kembaliKeMenuLaporan() {
 function renderDetailLaporan() {
     let trxs = db.transactions || [];
     
-    // Filter berdasarkan jenis laporan yang dipilih
+    // 1. Ambil nilai filter dari HTML
+    const tglMulai = $('filterTanggalMulai') ?$('filterTanggalMulai').value : '';
+    const tglAkhir = $('filterTanggalAkhir') ?$('filterTanggalAkhir').value : '';
+    const metodeBayar = $('filterMetodeBayar') ?$('filterMetodeBayar').value : 'Semua';
+    const statusBayar = $('filterStatusBayar') ?$('filterStatusBayar').value : 'Semua';
+
+    // 2. Filter berdasarkan Jenis Laporan (Omzet, Masuk, Lunas, dsb)
     if(currentLaporanType === 'lunas') {
         trxs = trxs.filter(t => t.isPaid === true);
     } else if(currentLaporanType === 'selesai') {
@@ -168,12 +174,30 @@ function renderDetailLaporan() {
     } else if(currentLaporanType === 'batal') {
         trxs = trxs.filter(t => t.status === 'Batal');
     } else if(currentLaporanType === 'omset') {
-        // Omzet mencakup transaksi yang sudah lunas atau DP
         trxs = trxs.filter(t => t.isPaid || (t.payStatus === 'DP' && Number(t.dpAmount) > 0));
     }
-    // Jika 'masuk', tampilkan seluruh data transaksi tanpa filter status khusus
-    
-    // Hitung total nominal & jumlah item
+    // Jika 'masuk', tidak perlu filter jenis laporan khusus, tampilkan semua
+
+    // 3. Terapkan Filter Tanggal
+    if(tglMulai) {
+        trxs = trxs.filter(t => new Date(t.date) >= new Date(tglMulai + 'T00:00:00'));
+    }
+    if(tglAkhir) {
+        trxs = trxs.filter(t => new Date(t.date) <= new Date(tglAkhir + 'T23:59:59'));
+    }
+
+    // 4. Terapkan Filter Metode Pembayaran
+    if(metodeBayar !== 'Semua') {
+        trxs = trxs.filter(t => t.payMethod === metodeBayar);
+    }
+
+    // 5. Terapkan Filter Status Pembayaran
+    if(statusBayar !== 'Semua') {
+        const isCariLunas = statusBayar === 'Lunas';
+        trxs = trxs.filter(t => t.isPaid === isCariLunas);
+    }
+
+    // 6. Hitung Total Nominal (berbeda untuk omzet dan lainnya)
     let totalNominal = trxs.reduce((sum, t) => {
         if(currentLaporanType === 'omset') {
             if(t.isPaid) return sum + Number(t.total);
@@ -182,15 +206,16 @@ function renderDetailLaporan() {
         return sum + Number(t.total || 0);
     }, 0);
 
+    // 7. Update UI untuk Ringkasan
     if($('totalNominalLaporan'))$('totalNominalLaporan').textContent = formatRp(totalNominal);
     if($('totalItemLaporan'))$('totalItemLaporan').textContent = trxs.length;
 
-    // Render ke dalam list rincian
+    // 8. Render List ke HTML
     const container = $('listDetailLaporan');
     if(!container) return;
     
     if(trxs.length === 0) {
-        container.innerHTML = '<div class="empty-state">Tidak ada data transaksi untuk laporan ini.</div>';
+        container.innerHTML = '<div class="empty-state" style="text-align:center; padding:20px; background:white; border-radius:8px; border:1px solid var(--border);">Tidak ada data transaksi yang sesuai filter.</div>';
         return;
     }
 
@@ -208,9 +233,33 @@ function renderDetailLaporan() {
                 </div>
                 <div style="text-align:right;">
                     <span style="font-size:13px; font-weight:bold; color:var(--primary);">${formatRp(t.total)}</span>
-                    <p style="font-size:10px; color:var(--muted); margin:0;">${t.isPaid ? 'Lunas' : 'Belum Lunas'}</p>
+                    <p style="font-size:10px; color:var(--muted); margin:0;">${t.isPaid ? 'Lunas (' + (t.payMethod || '-') + ')' : 'Belum Lunas'}</p>
                 </div>
             </div>
         `;
     }).join('');
+}
+
+// Fungsi tambahan untuk me-reset filter setiap kali membuka menu detail laporan baru
+function bukaDetailLaporan(type) {
+    currentLaporanType = type;
+    if($('laporanMenuView'))$('laporanMenuView').style.display = 'none';
+    if($('laporanDetailView'))$('laporanDetailView').style.display = 'block';
+    
+    let judul = 'Detail Laporan';
+    if(type === 'omset') judul = 'Laporan Omzet Transaksi';
+    else if(type === 'masuk') judul = 'Laporan Transaksi Masuk';
+    else if(type === 'lunas') judul = 'Laporan Transaksi Lunas';
+    else if(type === 'selesai') judul = 'Laporan Transaksi Selesai';
+    else if(type === 'batal') judul = 'Laporan Transaksi Batal';
+    
+    if($('judulDetailLaporan'))$('judulDetailLaporan').textContent = judul;
+    
+    // Reset nilai input filter
+    if($('filterTanggalMulai'))$('filterTanggalMulai').value = '';
+    if($('filterTanggalAkhir'))$('filterTanggalAkhir').value = '';
+    if($('filterMetodeBayar'))$('filterMetodeBayar').value = 'Semua';
+    if($('filterStatusBayar'))$('filterStatusBayar').value = 'Semua';
+
+    renderDetailLaporan();
 }
