@@ -133,3 +133,84 @@ function toggleTrxMenu() { const m = $('trxMenuDropdown'); if(m) m.style.display
 function cancelTransaction() { if(!currentViewTrxId) return; if(confirm("Yakin membatalkan transaksi ini?")) { const t = db.transactions.find(x => x.id === currentViewTrxId); if(t) { t.status = 'Batal'; saveToCloud(); openTrxDetail(currentViewTrxId); renderTransactions('Semua'); updateDashboardStats(); if($('trxMenuDropdown')) $('trxMenuDropdown').style.display = 'none'; showToast("Transaksi Dibatalkan!"); } } }
 function updateStatusFromDetail(id, newStatus) { const t = db.transactions.find(x => x.id === id); if(t) { t.status = newStatus; saveToCloud(); openTrxDetail(id); renderTransactions('Semua'); updateDashboardStats(); } }
 function filterTransactionsTab(status, btn) { document.querySelectorAll('.trans-tab').forEach(b => { b.style.background = '#f4f7fb'; b.style.color = 'var(--muted);'; }); btn.style.background = '#e1edff'; btn.style.color = 'var(--primary)'; renderTransactions(status); }
+// --- LOGIKA LAPORAN ARSY LAUNDRY ---
+let currentLaporanType = '';
+
+function bukaDetailLaporan(type) {
+    currentLaporanType = type;
+    if($('laporanMenuView'))$('laporanMenuView').style.display = 'none';
+    if($('laporanDetailView'))$('laporanDetailView').style.display = 'block';
+    
+    let judul = 'Detail Laporan';
+    if(type === 'omset') judul = 'Laporan Omzet Transaksi';
+    else if(type === 'masuk') judul = 'Laporan Transaksi Masuk';
+    else if(type === 'lunas') judul = 'Laporan Transaksi Lunas';
+    else if(type === 'selesai') judul = 'Laporan Transaksi Selesai';
+    else if(type === 'batal') judul = 'Laporan Transaksi Batal';
+    
+    if($('judulDetailLaporan'))$('judulDetailLaporan').textContent = judul;
+    renderDetailLaporan();
+}
+
+function kembaliKeMenuLaporan() {
+    if($('laporanDetailView'))$('laporanDetailView').style.display = 'none';
+    if($('laporanMenuView'))$('laporanMenuView').style.display = 'block';
+}
+
+function renderDetailLaporan() {
+    let trxs = db.transactions || [];
+    
+    // Filter berdasarkan jenis laporan yang dipilih
+    if(currentLaporanType === 'lunas') {
+        trxs = trxs.filter(t => t.isPaid === true);
+    } else if(currentLaporanType === 'selesai') {
+        trxs = trxs.filter(t => t.status === 'Selesai');
+    } else if(currentLaporanType === 'batal') {
+        trxs = trxs.filter(t => t.status === 'Batal');
+    } else if(currentLaporanType === 'omset') {
+        // Omzet mencakup transaksi yang sudah lunas atau DP
+        trxs = trxs.filter(t => t.isPaid || (t.payStatus === 'DP' && Number(t.dpAmount) > 0));
+    }
+    // Jika 'masuk', tampilkan seluruh data transaksi tanpa filter status khusus
+    
+    // Hitung total nominal & jumlah item
+    let totalNominal = trxs.reduce((sum, t) => {
+        if(currentLaporanType === 'omset') {
+            if(t.isPaid) return sum + Number(t.total);
+            if(t.payStatus === 'DP') return sum + Number(t.dpAmount || 0);
+        }
+        return sum + Number(t.total || 0);
+    }, 0);
+
+    if($('totalNominalLaporan'))$('totalNominalLaporan').textContent = formatRp(totalNominal);
+    if($('totalItemLaporan'))$('totalItemLaporan').textContent = trxs.length;
+
+    // Render ke dalam list rincian
+    const container = $('listDetailLaporan');
+    if(!container) return;
+    
+    if(trxs.length === 0) {
+        container.innerHTML = '<div class="empty-state">Tidak ada data transaksi untuk laporan ini.</div>';
+        return;
+    }
+
+    container.innerHTML = trxs.map(t => {
+        let statusColor = '#1769e0';
+        if(t.status === 'Proses') statusColor = '#ea8b00';
+        if(t.status === 'Siap Diambil' || t.status === 'Selesai') statusColor = '#16a34a';
+        if(t.status === 'Batal') statusColor = '#dc2626';
+
+        return `
+            <div onclick="openTrxDetail('${t.id}')" style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border); cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h4 style="font-size:14px; color:var(--text); margin-bottom:2px;">${t.customer}</h4>
+                    <p style="font-size:11px; color:var(--muted); margin:0;">${t.id} • <span style="color:${statusColor}; font-weight:bold;">${t.status}</span></p>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-size:13px; font-weight:bold; color:var(--primary);">${formatRp(t.total)}</span>
+                    <p style="font-size:10px; color:var(--muted); margin:0;">${t.isPaid ? 'Lunas' : 'Belum Lunas'}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
