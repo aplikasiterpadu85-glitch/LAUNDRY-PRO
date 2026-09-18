@@ -144,29 +144,7 @@ function openTrxDetail(id) {
     $('trxDetailContent').innerHTML = html; showPage('trxDetailPage'); 
 }
 
-// GANTI FUNGSI INI
-function addTempService() { 
-    const qty = Number($('iqQty').value); 
-    if(qty <= 0) return alert('Jumlah tidak valid'); 
-    const price = Number($('iqPrice').value); 
-    const newSrv = { id: $('iqId').value, name: $('iqName').textContent, qty: qty, price: price, unit:$('iqUnit').value, total: qty * price };
-    
-    // Cek apakah sedang menambahkan layanan ke transaksi lama atau transaksi baru
-    if (typeof editingTrxId !== 'undefined' && editingTrxId !== null) {
-        const t = db.transactions.find(x => x.id === editingTrxId);
-        if(t) {
-            t.services.push(newSrv);
-            t.total = t.services.reduce((sum, srv) => sum + srv.total, 0);
-            saveToCloud(); openTrxDetail(editingTrxId); updateDashboardStats();
-            showToast("Layanan baru ditambahkan!");
-        }
-        editingTrxId = null; // Reset penanda
-    } else {
-        tempTrxServices.push(newSrv); 
-    }
-    closeModal('inputQtyModal'); closeModal('selectServiceModal'); 
-    renderTempServices(); 
-}
+
 
 // TAMBAHKAN 3 FUNGSI BARU INI DI BAWAHNYA
 function editTrxServiceQty(trxId, idx) {
