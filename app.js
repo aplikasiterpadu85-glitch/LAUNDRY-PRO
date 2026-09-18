@@ -35,13 +35,34 @@ function renderCustomers() { if(!$('customersListContainer')) return; const cust
 // --- DASHBOARD KLIK PAKSA FIX ---
 function updateDashboardStats() { 
     const todayStr = new Date().toLocaleDateString('id-ID'); 
-    const todayTrx = (db.transactions||[]).filter(t => new Date(t.date).toLocaleDateString('id-ID') === todayStr); 
-    if($('todayIncome')) $('todayIncome').textContent = formatRp(todayTrx.reduce((s, t) => s + t.total, 0)); 
-    if($('todayTransactions')) $('todayTransactions').textContent = todayTrx.length; 
-    if($('pendingTransactions')) $('pendingTransactions').textContent = (db.transactions||[]).filter(t => t.status !== 'Selesai' && t.status !== 'Batal').length; 
+    
+    // Hitung transaksi yang memiliki pembayaran/DP pada hari ini
+    const allTrxs = db.transactions || [];
+    let todayIncomeTotal = 0;
+    let todayTrxCount = 0;
+
+    allTrxs.forEach(t => {
+        // Cek apakah transaksi ini ada pembayaran atau aktivitas hari ini
+        const tDate = new Date(t.date).toLocaleDateString('id-ID');
+        if (tDate === todayStr) {
+            todayTrxCount++;
+        }
+        // Omzet hari ini dihitung dari uang yang masuk hari ini (Lunas atau DP)
+        if (t.isPaid || (t.payStatus === 'DP' && Number(t.dpAmount) > 0)) {
+            // Jika ada catatan tanggal pembayaran spesifik, gunakan itu. Jika belum ada, fallback ke tanggal transaksi.
+            const payDateStr = t.payDate ? new Date(t.payDate).toLocaleDateString('id-ID') : tDate;
+            if (payDateStr === todayStr) {
+                if (t.isPaid) todayIncomeTotal += Number(t.total);
+                else if (t.payStatus === 'DP') todayIncomeTotal += Number(t.dpAmount || 0);
+            }
+        }
+    });
+
+    if($('todayIncome')) $('todayIncome').textContent = formatRp(todayIncomeTotal); 
+    if($('todayTransactions')) $('todayTransactions').textContent = todayTrxCount; 
+    if($('pendingTransactions')) $('pendingTransactions').textContent = allTrxs.filter(t => t.status !== 'Selesai' && t.status !== 'Batal').length; 
     if($('totalCustomers')) $('totalCustomers').textContent = (db.customers||[]).length; 
 
-    // Mencari otomatis box dashboard dan mengaktifkan klik
     setTimeout(() => {
         document.querySelectorAll('div').forEach(el => {
             const text = el.innerText || "";
@@ -61,7 +82,8 @@ function updateDashboardStats() {
             }
         });
     }, 500);
-                           }
+}
+
 function openServiceModal() { if($('serviceForm')) $('serviceForm').reset(); $('srvPrice').value = '0'; $('srvMinQty').value = '1'; $('srvDuration').value = '1 Hari'; $('serviceModal').classList.add('show'); }
 function saveService(e) { e.preventDefault(); if(!db.services) db.services = []; let processes = []; document.querySelectorAll('.srvProcess:checked').forEach(cb => processes.push(cb.value)); db.services.push({ id: Date.now().toString(), name: $('srvName').value, processes: processes, price: Number($('srvPrice').value), unit: $('srvUnit').value, duration: $('srvDuration').value, minQty: Number($('srvMinQty').value), isPinned: $('srvPinned').checked }); saveToCloud(); renderServices(); closeModal('serviceModal'); }
 function renderServices() { if(!$('servicesList')) return; const srvs = db.services || []; if(srvs.length === 0) { $('servicesList').innerHTML = '<div class="empty-state">Belum ada layanan.</div>'; return; } const sortedSrvs = [...srvs].sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0)); $('servicesList').innerHTML = sortedSrvs.map(s => { const processesText = (s.processes && s.processes.length > 0) ? s.processes.join(' - ') : 'Tanpa Proses'; const pinnedBadge = s.isPinned ? '<span style="background:#e1edff; color:#1769e0; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px;">Disematkan</span>' : ''; return `<div class="service-item" style="display:flex; flex-direction:column; padding:15px; margin-bottom:10px;"><div style="display:flex; justify-content:space-between;"><div style="flex:1;"><h3 style="font-size:15px; margin-bottom:4px; color:var(--text);">${s.name} ${pinnedBadge}</h3><p style="font-size:12px; color:var(--muted);">${processesText}</p></div><div style="text-align:right;"><div style="font-weight:bold; color:var(--primary); font-size:14px;">${formatRp(s.price)} / ${s.unit}</div><button onclick="delService('${s.id}')" style="background:transparent; color:#ef4444; border:none; font-size:12px; font-weight:bold; margin-top:8px;">Hapus</button></div></div></div>`; }).join(''); }
@@ -74,7 +96,47 @@ function openInputQty(id, name, price, unit) { $('iqId').value = id; $('iqName')
 function addTempService() { const qty = Number($('iqQty').value); if(qty <= 0) return alert('Jumlah tidak valid'); const price = Number($('iqPrice').value); tempTrxServices.push({ id: $('iqId').value, name: $('iqName').textContent, qty: qty, price: price, unit: $('iqUnit').value, total: qty * price }); closeModal('inputQtyModal'); closeModal('selectServiceModal'); renderTempServices(); }
 function removeTempService(i) { tempTrxServices.splice(i,1); renderTempServices(); }
 function saveTransaction(e) { e.preventDefault(); if(tempTrxServices.length === 0) return alert("Tambahkan minimal 1 layanan!"); if(!db.transactions) db.transactions = []; if(!db.customers) db.customers = []; const customerName = $('trxCustomer').value.trim(); const total = tempTrxServices.reduce((sum, s) => sum + s.total, 0); let cust = db.customers.find(c => c.name.toLowerCase() === customerName.toLowerCase()); if(!cust) db.customers.push({ id: Date.now().toString(), name: customerName, totalTrx: 1 }); else cust.totalTrx = (cust.totalTrx || 0) + 1; const newTrxId = 'TRX/' + Date.now().toString().slice(3); db.transactions.unshift({ id: newTrxId, date: new Date().toISOString(), customer: customerName, services: [...tempTrxServices], total: total, status: $('trxStatus').value, isPaid: false, payMethod: '-' }); saveToCloud(); renderTransactions('Semua'); renderCustomers(); updateDashboardStats(); closeModal('transactionModal'); showToast("Transaksi Berhasil Dibuat! ✔️"); setTimeout(() => { openTrxDetail(newTrxId); }, 200); }
-function renderTransactions(filter = 'Semua') { let trxs = db.transactions || []; if(filter !== 'Semua') trxs = trxs.filter(t => t.status === filter); const html = trxs.map(t => { return `<div class="transaction-item" onclick="openTrxDetail('${t.id}')" style="cursor:pointer;"><div class="item-main"><h3 style="margin-bottom:2px;">${t.customer}</h3><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">${t.id}</p><span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span></div><div class="item-price" style="text-align:right;">${formatRp(t.total)}<br><small style="color:${t.isPaid?'#16a34a':'#ea8b00'}; font-weight:bold;">${t.isPaid?'Lunas':'Belum Lunas'}</small></div></div>`; }).join(''); if($('allTransactions')) $('allTransactions').innerHTML = html || '<div class="empty-state">Belum ada transaksi di tab ini.</div>'; if($('recentTransactions') && filter === 'Semua') { $('recentTransactions').innerHTML = trxs.slice(0,5).map(t => `<div class="transaction-item" onclick="openTrxDetail('${t.id}')" style="cursor:pointer;"><div class="item-main"><h3 style="margin-bottom:4px;">${t.customer}</h3><span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span></div><div class="item-price">${formatRp(t.total)}</div></div>`).join('') || '<div class="empty-state">Belum ada transaksi.</div>'; } }
+function renderTransactions(filter = 'Semua') { 
+    let trxs = db.transactions || []; 
+    if(filter !== 'Semua') trxs = trxs.filter(t => t.status === filter); 
+    
+    const html = trxs.map(t => { 
+        const d = new Date(t.date);
+        const dateStr = d.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) + ', ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+        
+        return `
+            <div class="transaction-item" onclick="openTrxDetail('${t.id}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border); margin-bottom:10px;">
+                <div class="item-main">
+                    <h3 style="margin-bottom:2px; font-size:14px; color:var(--text);">${t.customer}</h3>
+                    <p style="font-size:11px; color:var(--muted); margin-bottom:4px;">${t.id} • ${dateStr}</p>
+                    <span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span>
+                </div>
+                <div class="item-price" style="text-align:right;">
+                    <span style="font-size:14px; font-weight:bold; color:var(--primary);">${formatRp(t.total)}</span><br>
+                    <small style="color:${t.isPaid?'#16a34a':(t.payStatus==='DP'?'#d97706':'#ea8b00')}; font-weight:bold;">${t.isPaid?'Lunas':(t.payStatus==='DP'?'DP':'Belum Lunas')}</small>
+                </div>
+            </div>`; 
+    }).join(''); 
+    
+    if($('allTransactions'))$('allTransactions').innerHTML = html || '<div class="empty-state">Belum ada transaksi di tab ini.</div>'; 
+    if($('recentTransactions') && filter === 'Semua') {$('recentTransactions').innerHTML = trxs.slice(0,5).map(t => {
+            const d = new Date(t.date);
+            const dateStr = d.toLocaleDateString('id-ID', {day:'numeric', month:'short'}) + ', ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+            return `
+                <div class="transaction-item" onclick="openTrxDetail('${t.id}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border); margin-bottom:10px;">
+                    <div class="item-main">
+                        <h3 style="margin-bottom:2px; font-size:14px; color:var(--text);">${t.customer}</h3>
+                        <p style="font-size:11px; color:var(--muted); margin-bottom:4px;">${t.id} • ${dateStr}</p>
+                        <span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span>
+                    </div>
+                    <div class="item-price" style="text-align:right;">
+                        <span style="font-size:14px; font-weight:bold; color:var(--primary);">${formatRp(t.total)}</span>
+                    </div>
+                </div>`;
+        }).join('') || '<div class="empty-state">Belum ada transaksi.</div>'; 
+    } 
+}
+
 function openDashboardDetail(type) {
     if(type === 'omset' || type === 'transaksi') {
         showPage('transactionsPage');
