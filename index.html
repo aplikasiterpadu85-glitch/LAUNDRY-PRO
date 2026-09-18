@@ -652,15 +652,8 @@
          </div>
       </div>
     </section>
-
-
     <!-- 💳 MODAL PEMBAYARAN (Pilihan Tunai, GoPay, dll) -->
-                <label style="font-size:12px; font-weight:bold;">Status Pembayaran</label>
-            <select id="payStatusSelect" style="margin-bottom:15px; width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); font-size:14px;">
-                <option value="Lunas">Lunas</option>
-                <option value="DP">DP (Sebagian)</option>
-                <option value="Belum Lunas">Belum Lunas</option>
-            </select>
+    <div id="paymentModal" class="modal">
       <div class="modal-content" style="background:#f4f7fb; max-height:80vh; overflow-y:auto;">
         <div class="modal-header" style="margin-bottom:15px;">
           <h2>Pembayaran</h2>
@@ -673,6 +666,7 @@
             <label style="font-size:12px; font-weight:bold;">Status Pembayaran</label>
             <select id="payStatusSelect" style="margin-bottom:15px; width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); font-size:14px;">
                 <option value="Lunas">Lunas</option>
+                <option value="DP">DP (Sebagian)</option>
                 <option value="Belum Lunas">Belum Lunas</option>
             </select>
             
@@ -690,5 +684,4 @@
         <button class="submit-button" onclick="confirmPayment()" style="margin-top:20px; background:#16a34a; font-size:16px;">Simpan Pembayaran</button>
       </div>
     </div>
-
     
