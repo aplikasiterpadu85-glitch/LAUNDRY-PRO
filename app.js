@@ -98,6 +98,88 @@ function deleteCustomer(id, name) {
         showToast("Pelanggan berhasil dihapus dari daftar!");
     }
 }
+function openCustomerDetail(customerName) {
+    if($('customerDetailTitle'))$('customerDetailTitle').textContent = 'Detail: ' + customerName;
+    
+    const trxs = (db.transactions || []).filter(t => t.customer.toLowerCase() === customerName.toLowerCase());
+    
+    let totalRupiah = 0;
+    let totalBatal = 0;
+    
+    trxs.forEach(t => {
+        if(t.status === 'Batal') {
+            totalBatal++;
+        } else {
+            totalRupiah += Number(t.total || 0);
+        }
+    });
+
+    // Urutkan transaksi dari yang paling baru
+    const sortedTrx = [...trxs].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const trxPertama = sortedTrx.length > 0 ? new Date(sortedTrx[sortedTrx.length - 1].date).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) : '-';
+    const trxTerakhir = sortedTrx.length > 0 ? new Date(sortedTrx[0].date).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) : '-';
+
+    const html = `
+    <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:20px; margin-bottom:15px; text-align:center;">
+        <div style="width:60px; height:60px; border-radius:50%; background:#e1edff; color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:24px; margin:0 auto 10px;">
+            ${customerName.charAt(0).toUpperCase()}
+        </div>
+        <h2 style="font-size:18px; color:var(--text);">${customerName}</h2>
+    </div>
+
+    <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
+        <h3 style="font-size:14px; font-weight:bold; margin-bottom:15px; color:var(--text);">Data Transaksi</h3>
+        
+        <div style="margin-bottom:12px;">
+            <p style="font-size:12px; color:var(--muted); margin-bottom:2px;">Total Nilai Transaksi</p>
+            <p style="font-size:15px; font-weight:bold; color:var(--primary);">${formatRp(totalRupiah)}</p>
+        </div>
+        
+        <div style="margin-bottom:12px;">
+            <p style="font-size:12px; color:var(--muted); margin-bottom:2px;">Jumlah Transaksi</p>
+            <p style="font-size:14px; color:var(--text);">${trxs.length} Transaksi</p>
+        </div>
+        
+        <div style="margin-bottom:12px;">
+            <p style="font-size:12px; color:var(--muted); margin-bottom:2px;">Jumlah Pembatalan</p>
+            <p style="font-size:14px; color:var(--text);">${totalBatal} Transaksi</p>
+        </div>
+        
+        <div style="margin-bottom:12px;">
+            <p style="font-size:12px; color:var(--muted); margin-bottom:2px;">Transaksi Pertama</p>
+            <p style="font-size:14px; color:var(--text);">${trxPertama}</p>
+        </div>
+        
+        <div style="margin-bottom:15px;">
+            <p style="font-size:12px; color:var(--muted); margin-bottom:2px;">Transaksi Terakhir</p>
+            <p style="font-size:14px; color:var(--text);">${trxTerakhir}</p>
+        </div>
+        
+        <button onclick="lihatSemuaRiwayatPelanggan('${customerName}')" style="width:100%; background:transparent; color:var(--primary); border:1px solid var(--primary); padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">
+            Lihat Semua Transaksi ›
+        </button>
+    </div>
+    `;
+    
+    if($('customerDetailContent'))$('customerDetailContent').innerHTML = html;
+    showPage('customerDetailPage');
+}
+
+function lihatSemuaRiwayatPelanggan(customerName) {
+    showPage('transactionsPage');
+    
+    document.querySelectorAll('.trans-tab').forEach(b => {
+        b.style.background = '#f4f7fb'; 
+        b.style.color = 'var(--muted)';
+    });
+
+    const searchInput = document.getElementById('transactionSearchInput');
+    if (searchInput) {
+        searchInput.value = customerName;
+        // Panggil render kembali untuk menyesuaikan hasil pencarian
+        renderTransactions('Semua');
+    }
+}
 
 // --- DASHBOARD KLIK PAKSA FIX ---
 function updateDashboardStats() { 
@@ -382,7 +464,7 @@ function shareWhatsApp(id) {
                             }
 let editingTrxId = null; // Tambahkan penanda ini di luar fungsi
 
-// GANTI FUNGSI INI KESELURUHAN
+// GANTI FUNGSI openTrxDetail SECARA KESELURUHAN DENGAN INI
 function openTrxDetail(id) { 
     currentViewTrxId = id; if($('trxMenuDropdown'))$('trxMenuDropdown').style.display = 'none'; 
     const t = db.transactions.find(x => x.id === id); if(!t) return; 
@@ -391,7 +473,7 @@ function openTrxDetail(id) {
     const entryDate = new Date(t.date); 
     const dateStr = entryDate.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) + ', ' + entryDate.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}); 
     
-    // HITUNG ESTIMASI SELESAI
+    // Hitung Estimasi Selesai
     let maxDays = 1; 
     const srvs = t.services || [{name: t.service, qty: t.qty, unit: t.unit, price: t.price, total: t.total}];
     srvs.forEach(s => {
@@ -404,11 +486,19 @@ function openTrxDetail(id) {
     const estDateObj = new Date(entryDate.getTime() + (maxDays * 24 * 60 * 60 * 1000));
     const estDateStr = estDateObj.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
 
-    // Logika Warna Status
     let color = '#1769e0'; if(t.status==='Proses') color = '#ea8b00'; if(t.status==='Siap Diambil' || t.status==='Selesai') color = '#16a34a'; if(t.status==='Batal') color = '#dc2626'; 
     const flow = ['Antrian', 'Proses', 'Siap Diambil', 'Selesai']; const cIdx = flow.indexOf(t.status); const nextSt = flow[cIdx + 1]; 
     let btnNext = (nextSt && t.status !== 'Batal') ? `<button onclick="updateStatusFromDetail('${t.id}', '${nextSt}')" class="submit-button" style="margin-top:15px; background:${color}; font-size:15px;">${nextSt === 'Proses' ? 'Proses Transaksi' : (nextSt === 'Siap Diambil' ? 'Transaksi Siap Diambil' : 'Selesaikan Transaksi')}</button>` : ''; 
     let btnPrev = (cIdx > 0 && t.status !== 'Batal') ? `<button onclick="updateStatusFromDetail('${t.id}', '${flow[cIdx-1]}')" class="submit-button" style="margin-top:10px; background:white; color:var(--text); border:1px solid var(--border);">Kembalikan Status</button>` : ''; 
+    
+    // Tampilan Detail Pembayaran (Dengan Kembalian)
+    let paymentDetailHTML = '';
+    if (t.isPaid || t.payStatus === 'DP') {
+        paymentDetailHTML = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span style="font-size:12px; color:var(--muted);">Uang Dibayar</span><span style="font-size:13px; font-weight:bold;">${formatRp(t.dpAmount || t.total)}</span></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span style="font-size:12px; color:var(--muted);">Kembalian</span><span style="font-size:13px; font-weight:bold; color:#16a34a;">${formatRp(t.kembalian || 0)}</span></div>
+        `;
+    }
     
     let btnPay = ''; 
     if(t.status !== 'Batal') { 
@@ -438,7 +528,6 @@ function openTrxDetail(id) {
         </div>
     `).join(''); 
     
-    // Inject Estimasi Selesai di HTML
     const html = `
     <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
         <p style="font-size:12px; color:var(--muted); margin-bottom:4px;">No. Transaksi: <span style="color:var(--text); font-weight:bold;">${t.id}</span></p>
@@ -469,6 +558,7 @@ function openTrxDetail(id) {
     <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-top:20px; margin-bottom:15px;">
         <p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PEMBAYARAN</p>
         <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Total Transaksi</span><span style="font-size:15px; font-weight:bold;">${formatRp(t.total)}</span></div>
+        ${paymentDetailHTML}
         <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Status</span><span style="font-size:11px; font-weight:bold; color:${t.isPaid?'#16a34a':(t.payStatus==='DP'?'#d97706':'#ea8b00')}; background:${t.isPaid?'#dcfce7':(t.payStatus==='DP'?'#fef3c7':'#fff0d2')}; padding:4px 8px; border-radius:6px;">${t.isPaid?'Lunas':(t.payStatus==='DP'?'DP':'Belum Lunas')}</span></div>
     </div>
     
@@ -477,6 +567,7 @@ function openTrxDetail(id) {
     
     $('trxDetailContent').innerHTML = html; showPage('trxDetailPage'); 
 }
+
 
     
 // TAMBAHKAN 3 FUNGSI BARU INI DI BAWAHNYA
