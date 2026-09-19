@@ -94,30 +94,7 @@ function tambahPelangganBaru() {
 }
 
     
-    $('customersListContainer').innerHTML = custs.map(c => `
-        <div style="background:white; padding:12px 15px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; transition:0.2s;">
-            
-            <!-- Area Kiri (Bisa diklik untuk lihat riwayat) -->
-            <div onclick="openCustomerDetail('${c.name}')" style="cursor:pointer; display:flex; align-items:center; gap:12px; flex:1;">
-                <div style="width:40px; height:40px; border-radius:50%; background:#e1edff; color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px;">
-                    ${c.name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                    <h3 style="font-size:15px; color:var(--text); margin-bottom:2px;">${c.name}</h3>
-                    <p style="font-size:12px; color:var(--muted); margin:0;">Total Transaksi: ${c.totalTrx || 0}</p>
-                </div>
-            </div>
-
-            <!-- Area Kanan (Tombol Edit & Hapus) -->
-            <div style="display:flex; gap:6px;">
-                <button onclick="editCustomer('${c.id}', '${c.name}')" style="background:#fef08a; color:#ca8a04; border:none; font-size:11px; font-weight:bold; padding:6px 10px; border-radius:6px; cursor:pointer;">Edit</button>
-                <button onclick="deleteCustomer('${c.id}', '${c.name}')" style="background:#fee2e2; color:#ef4444; border:none; font-size:11px; font-weight:bold; padding:6px 10px; border-radius:6px; cursor:pointer;">Hapus</button>
-            </div>
-            
-        </div>`).join('') || '<div class="empty-state">Belum ada pelanggan.</div>'; 
-        
-    if($('totalCustomers'))$('totalCustomers').textContent = custs.length; 
-}
+    
 // TAMBAHKAN DUA FUNGSI BARU INI
 function editCustomer(id, oldName) {
     const newName = prompt("Ubah nama pelanggan:", oldName);
