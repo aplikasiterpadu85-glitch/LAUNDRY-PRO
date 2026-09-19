@@ -72,25 +72,45 @@ function renderCustomers() {
 }
 
 // TAMBAHKAN FUNGSI BARU INI DI BAWAHNYA
+// GANTI FUNGSI tambahPelangganBaru LAMA DENGAN DUA FUNGSI INI
 function tambahPelangganBaru() {
-    const nama = prompt("Masukkan nama pelanggan baru:");
-    if(nama && nama.trim() !== "") {
-        const exist = db.customers.find(c => c.name.toLowerCase() === nama.trim().toLowerCase());
-        if(exist) {
-            alert("Nama pelanggan sudah ada di daftar!");
-            return;
-        }
-        // Tambahkan ke buku pelanggan
-        db.customers.unshift({ 
-            id: Date.now().toString(), 
-            name: nama.trim(), 
-            totalTrx: 0 
-        });
-        saveToCloud();
-        renderCustomers();
-        updateDashboardStats();
-        showToast("Pelanggan baru berhasil ditambahkan!");
+    // 1. Kosongkan isian form sebelumnya
+    $('newCustName').value = '';
+    $('newCustPhone').value = '';
+    $('newCustAddress').value = '';
+    
+    // 2. Munculkan modal/form yang baru kita buat
+    $('tambahPelangganModal').classList.add('show');
+}
+
+function simpanPelangganBaru(e) {
+    e.preventDefault(); // Mencegah halaman refresh
+    
+    const nama = $('newCustName').value.trim();
+    const phone = $('newCustPhone').value.trim();
+    const address = $('newCustAddress').value.trim();
+
+    // Cek jika nama sudah ada
+    const exist = db.customers.find(c => c.name.toLowerCase() === nama.toLowerCase());
+    if(exist) {
+        alert("Nama pelanggan sudah ada di daftar!");
+        return;
     }
+
+    // Masukkan pelanggan baru ke database
+    db.customers.unshift({ 
+        id: Date.now().toString(), 
+        name: nama,
+        phone: phone,      // Kita simpan nomor HP-nya
+        address: address,  // Kita simpan alamatnya
+        totalTrx: 0 
+    });
+    
+    saveToCloud(); // Simpan ke penyimpanan
+    closeModal('tambahPelangganModal'); // Tutup pop-up
+    renderCustomers(); // Segarkan daftar pelanggan
+    updateDashboardStats(); // Perbarui angka di dashboard
+    showToast("Pelanggan baru berhasil ditambahkan!");
 }
 
     
