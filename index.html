@@ -565,6 +565,43 @@
       .dashboard-card { cursor: pointer; transition: transform 0.2s; }
       .dashboard-card:active { transform: scale(0.95); }
     </style>
+<!-- ============================================== -->
+<!-- MODAL TAMBAH PELANGGAN BARU (GAYA RANDORI)     -->
+<!-- ============================================== -->
+<div id="tambahPelangganModal" class="modal">
+  <div class="modal-content" style="background:#f8fafc;">
+    <div class="modal-header">
+      <h2>Tambah Pelanggan Baru</h2>
+      <button class="close-button" onclick="closeModal('tambahPelangganModal')">✕</button>
+    </div>
+    
+    <form onsubmit="simpanPelangganBaru(event)" style="background:white; padding:15px; border-radius:12px; border:1px solid var(--border);">
+      
+      <label style="display:block; font-size:12px; font-weight:bold; color:var(--text); margin-bottom:4px;">
+        Nama Pelanggan <span style="color:red;">*</span>
+      </label>
+      <input type="text" id="newCustName" placeholder="Contoh: Budi" required 
+             style="width:100%; padding:10px; margin-bottom:15px; border:1px solid var(--border); border-radius:8px; box-sizing:border-box;">
+      
+      <label style="display:block; font-size:12px; font-weight:bold; color:var(--text); margin-bottom:4px;">
+        No. Handphone (Opsional)
+      </label>
+      <input type="tel" id="newCustPhone" placeholder="Contoh: 08123456789" 
+             style="width:100%; padding:10px; margin-bottom:15px; border:1px solid var(--border); border-radius:8px; box-sizing:border-box;">
+      
+      <label style="display:block; font-size:12px; font-weight:bold; color:var(--text); margin-bottom:4px;">
+        Alamat (Opsional)
+      </label>
+      <textarea id="newCustAddress" rows="2" placeholder="Contoh: Jl. Merdeka No.1" 
+                style="width:100%; padding:10px; margin-bottom:15px; border:1px solid var(--border); border-radius:8px; box-sizing:border-box;"></textarea>
+      
+      <button type="submit" class="submit-button" style="width:100%; background:var(--primary); color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">
+        Simpan Pelanggan
+      </button>
+    </form>
+    
+  </div>
+</div>
 
         <!-- 📊 HALAMAN LAPORAN -->
     <section id="laporanPage" class="page">
