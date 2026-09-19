@@ -282,17 +282,34 @@ function shareWhatsApp(id) {
                             }
 let editingTrxId = null; // Tambahkan penanda ini di luar fungsi
 
-// GANTI FUNGSI INI
+// GANTI FUNGSI INI KESELURUHAN
 function openTrxDetail(id) { 
     currentViewTrxId = id; if($('trxMenuDropdown'))$('trxMenuDropdown').style.display = 'none'; 
     const t = db.transactions.find(x => x.id === id); if(!t) return; 
-    const d = new Date(t.date); const dateStr = d.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) + ', ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}); 
+    
+    // Format Tanggal Masuk
+    const entryDate = new Date(t.date); 
+    const dateStr = entryDate.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) + ', ' + entryDate.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}); 
+    
+    // HITUNG ESTIMASI SELESAI
+    let maxDays = 1; 
+    const srvs = t.services || [{name: t.service, qty: t.qty, unit: t.unit, price: t.price, total: t.total}];
+    srvs.forEach(s => {
+        const dbSrv = (db.services || []).find(ds => ds.name === s.name);
+        if(dbSrv && dbSrv.duration) {
+            const days = parseInt(dbSrv.duration); 
+            if(!isNaN(days) && days > maxDays) maxDays = days;
+        }
+    });
+    const estDateObj = new Date(entryDate.getTime() + (maxDays * 24 * 60 * 60 * 1000));
+    const estDateStr = estDateObj.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
+
+    // Logika Warna Status
     let color = '#1769e0'; if(t.status==='Proses') color = '#ea8b00'; if(t.status==='Siap Diambil' || t.status==='Selesai') color = '#16a34a'; if(t.status==='Batal') color = '#dc2626'; 
     const flow = ['Antrian', 'Proses', 'Siap Diambil', 'Selesai']; const cIdx = flow.indexOf(t.status); const nextSt = flow[cIdx + 1]; 
     let btnNext = (nextSt && t.status !== 'Batal') ? `<button onclick="updateStatusFromDetail('${t.id}', '${nextSt}')" class="submit-button" style="margin-top:15px; background:${color}; font-size:15px;">${nextSt === 'Proses' ? 'Proses Transaksi' : (nextSt === 'Siap Diambil' ? 'Transaksi Siap Diambil' : 'Selesaikan Transaksi')}</button>` : ''; 
     let btnPrev = (cIdx > 0 && t.status !== 'Batal') ? `<button onclick="updateStatusFromDetail('${t.id}', '${flow[cIdx-1]}')" class="submit-button" style="margin-top:10px; background:white; color:var(--text); border:1px solid var(--border);">Kembalikan Status</button>` : ''; 
     
-    // Logika Tombol Pembayaran & Batal Bayar
     let btnPay = ''; 
     if(t.status !== 'Batal') { 
         if(t.isPaid || t.payStatus === 'Lunas' || t.payStatus === 'DP') {
@@ -303,6 +320,65 @@ function openTrxDetail(id) {
             btnPay = `<button onclick="openPaymentModal('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:10px;">Bayar Tagihan</button>`;
         }
     } 
+    
+    let srvsHtml = srvs.map((s, idx) => `
+        <div style="padding-top:12px; border-top:1px dashed var(--border); margin-top:10px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                <h4 style="font-size:14px; color:var(--text);">${s.name}</h4>
+                <div style="font-weight:bold; font-size:14px;">${formatRp(s.total)}</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:12px; color:var(--muted); background:#f8fafc; padding:4px 8px; border-radius:6px; border:1px solid var(--border); display:flex; align-items:center; gap:8px;">
+                    <span onclick="editTrxServiceQty('${t.id}', ${idx})" style="color:var(--primary); font-weight:bold; cursor:pointer;"><i class="fas fa-edit"></i> Qty</span>
+                    <span>|</span>
+                    <span>${s.qty} ${s.unit || 'kg'} x ${formatRp(s.price)}</span>
+                </div>
+                <button onclick="removeTrxService('${t.id}', ${idx})" style="background:transparent; color:#ef4444; border:none; font-size:12px; font-weight:bold;"><i class="fas fa-trash"></i> Hapus</button>
+            </div>
+        </div>
+    `).join(''); 
+    
+    // Inject Estimasi Selesai di HTML
+    const html = `
+    <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
+        <p style="font-size:12px; color:var(--muted); margin-bottom:4px;">No. Transaksi: <span style="color:var(--text); font-weight:bold;">${t.id}</span></p>
+        <p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Status: <span style="color:${color}; font-weight:bold;">${t.status}</span></p>
+        <p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Kasir: <span style="color:var(--text); font-weight:bold;">${currentUser.name}</span></p>
+        <p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Masuk: <span style="color:var(--text); font-weight:bold;">${dateStr}</span></p>
+        <p style="font-size:12px; color:var(--muted); margin-bottom:0; padding-top:4px; border-top:1px dashed var(--border);">Estimasi Selesai: <span style="color:#d97706; font-weight:bold;">${estDateStr}</span></p>
+    </div>
+    
+    <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
+        <p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PELANGGAN</p>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:40px; height:40px; border-radius:50%; background:#e1edff; color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px;">${t.customer.charAt(0).toUpperCase()}</div>
+            <h3 style="font-size:16px;">${t.customer}</h3>
+        </div>
+    </div>
+    
+    <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <p style="font-size:11px; color:var(--muted); font-weight:bold; margin:0;">LAYANAN LAUNDRY</p>
+            <button onclick="editingTrxId='${t.id}'; openSelectServiceModal()" style="background:#e1edff; color:var(--primary); border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:bold;">+ Tambah</button>
+        </div>
+        ${srvsHtml}
+    </div>
+    
+    ${btnNext}${btnPrev}
+    
+    <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-top:20px; margin-bottom:15px;">
+        <p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PEMBAYARAN</p>
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Total Transaksi</span><span style="font-size:15px; font-weight:bold;">${formatRp(t.total)}</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Status</span><span style="font-size:11px; font-weight:bold; color:${t.isPaid?'#16a34a':(t.payStatus==='DP'?'#d97706':'#ea8b00')}; background:${t.isPaid?'#dcfce7':(t.payStatus==='DP'?'#fef3c7':'#fff0d2')}; padding:4px 8px; border-radius:6px;">${t.isPaid?'Lunas':(t.payStatus==='DP'?'DP':'Belum Lunas')}</span></div>
+    </div>
+    
+    ${btnPay}
+    <button onclick="shareWhatsApp('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:20px;"><i class="fab fa-whatsapp"></i> Kirim Nota via WA</button>`; 
+    
+    $('trxDetailContent').innerHTML = html; showPage('trxDetailPage'); 
+}
+
+    
 
     const srvs = t.services || [{name: t.service, qty: t.qty, unit: t.unit, price: t.price, total: t.total}]; 
     
