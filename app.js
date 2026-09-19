@@ -222,10 +222,30 @@ function renderTransactions(filter = 'Semua') {
     else if(filter === 'TransaksiHariIni') {
         trxs = trxs.filter(t => new Date(t.date).toLocaleDateString('id-ID') === todayStr);
     }
-    else if(filter === 'BelumSelesai') {
-        // Disamakan persis dengan hitungan kartu Dashboard
-        trxs = trxs.filter(t => t.status !== 'Selesai' && t.status !== 'Batal');
+        else if(filter === 'BelumSelesai') {
+        trxs = trxs.filter(t => {
+            // Abaikan yang sudah beres atau batal
+            if(t.status === 'Selesai' || t.status === 'Siap Diambil' || t.status === 'Batal') return false;
+            
+            // Hitung estimasi selesai
+            let maxDays = 1; 
+            (t.services || []).forEach(srv => {
+                const dbSrv = (db.services || []).find(ds => ds.name === srv.name);
+                if(dbSrv && dbSrv.duration) {
+                    const days = parseInt(dbSrv.duration); 
+                    if(!isNaN(days) && days > maxDays) maxDays = days;
+                }
+            });
+            
+            const trxDate = new Date(t.date);
+            const deadline = new Date(trxDate.getTime() + (maxDays * 24 * 60 * 60 * 1000));
+            const now = new Date();
+            
+            // Tampilkan HANYA jika waktu sekarang melebihi waktu deadline
+            return now > deadline; 
+        });
     }
+
     else if(filter !== 'Semua') {
         trxs = trxs.filter(t => t.status === filter);
     }
