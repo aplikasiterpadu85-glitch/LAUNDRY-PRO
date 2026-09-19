@@ -905,3 +905,73 @@ function bukaDetailLaporan(type) {
 
     renderDetailLaporan();
 }
+async function cetakNotaThermal(id) {
+    const t = db.transactions.find(x => x.id === id); 
+    if(!t) return;
+    
+    // Syarat wajib: Harus pakai Google Chrome di Android
+    if (!navigator.bluetooth) {
+        alert("Browser ini tidak mendukung fitur Bluetooth Web. Pastikan Anda menggunakan Google Chrome.");
+        return;
+    }
+
+    // Merakit Teks Struk untuk Kertas 58mm (Maksimal 32 Karakter per baris)
+    let struk = "";
+    struk += "          COBA LAUNDRY          \n";
+    struk += "      Mlirip, Mojokerto         \n";
+    struk += "--------------------------------\n";
+    struk += `No    : ${t.id}\n`;
+    struk += `Nama  : ${t.customer}\n`;
+    struk += `Waktu : ${new Date(t.date).toLocaleDateString('id-ID')}\n`;
+    struk += "--------------------------------\n";
+    
+    const srvs = t.services || [{name:t.service, qty:t.qty, unit:t.unit, price:t.price, total:t.total}];
+    srvs.forEach(s => {
+        struk += `${s.name}\n`;
+        struk += `${s.qty}x Rp${s.price} = Rp${s.total}\n`;
+    });
+    
+    struk += "--------------------------------\n";
+    struk += `Total   : Rp${t.total}\n`;
+    
+    let dibayar = t.dpAmount || 0;
+    if (t.isPaid || t.payStatus === 'Lunas') dibayar = t.total;
+    
+    struk += `Bayar   : Rp${dibayar}\n`;
+    struk += `Kembali : Rp${t.kembalian || 0}\n`;
+    struk += `Status  : ${t.isPaid ? 'LUNAS' : (t.payStatus === 'DP' ? 'DP' : 'BELUM LUNAS')}\n`;
+    struk += "--------------------------------\n";
+    struk += "      Terima Kasih Banyak       \n\n\n"; // Jarak 3 baris kosong agar mudah disobek
+
+    try {
+        // Memanggil pop-up Bluetooth bawaan Android
+        showToast("Mencari printer Bluetooth...");
+        const device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb'] // UUID Standar Printer Thermal 58mm
+        });
+        
+        // Proses penyandingan dan koneksi data
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+        const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb'); 
+        
+        // Menerjemahkan teks menjadi sinyal data yang dipahami printer
+        const encoder = new TextEncoder();
+        const data = encoder.encode(struk);
+        
+        // Trik khusus: Kirim data secara bertahap (maksimal 512 bytes) agar printer tidak macet
+        const maxChunk = 512;
+        for (let i = 0; i < data.length; i += maxChunk) {
+            const chunk = data.slice(i, i + maxChunk);
+            await characteristic.writeValue(chunk);
+        }
+        
+        showToast("Struk berhasil dicetak! 🖨️");
+        device.gatt.disconnect(); // Putuskan koneksi otomatis
+        
+    } catch (error) {
+        console.error(error);
+        alert("Gagal mencetak struk. Pastikan printer menyala, Bluetooth aktif, dan kertas tersedia.\n\nDetail error: " + error.message);
+    }
+}
