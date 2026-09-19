@@ -85,7 +85,53 @@ function updateDashboardStats() {
 
 function openServiceModal() { if($('serviceForm')) $('serviceForm').reset(); $('srvPrice').value = '0'; $('srvMinQty').value = '1'; $('srvDuration').value = '1 Hari'; $('serviceModal').classList.add('show'); }
 function saveService(e) { e.preventDefault(); if(!db.services) db.services = []; let processes = []; document.querySelectorAll('.srvProcess:checked').forEach(cb => processes.push(cb.value)); db.services.push({ id: Date.now().toString(), name: $('srvName').value, processes: processes, price: Number($('srvPrice').value), unit: $('srvUnit').value, duration: $('srvDuration').value, minQty: Number($('srvMinQty').value), isPinned: $('srvPinned').checked }); saveToCloud(); renderServices(); closeModal('serviceModal'); }
-function renderServices() { if(!$('servicesList')) return; const srvs = db.services || []; if(srvs.length === 0) { $('servicesList').innerHTML = '<div class="empty-state">Belum ada layanan.</div>'; return; } const sortedSrvs = [...srvs].sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0)); $('servicesList').innerHTML = sortedSrvs.map(s => { const processesText = (s.processes && s.processes.length > 0) ? s.processes.join(' - ') : 'Tanpa Proses'; const pinnedBadge = s.isPinned ? '<span style="background:#e1edff; color:#1769e0; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px;">Disematkan</span>' : ''; return `<div class="service-item" style="display:flex; flex-direction:column; padding:15px; margin-bottom:10px;"><div style="display:flex; justify-content:space-between;"><div style="flex:1;"><h3 style="font-size:15px; margin-bottom:4px; color:var(--text);">${s.name} ${pinnedBadge}</h3><p style="font-size:12px; color:var(--muted);">${processesText}</p></div><div style="text-align:right;"><div style="font-weight:bold; color:var(--primary); font-size:14px;">${formatRp(s.price)} / ${s.unit}</div><button onclick="delService('${s.id}')" style="background:transparent; color:#ef4444; border:none; font-size:12px; font-weight:bold; margin-top:8px;">Hapus</button></div></div></div>`; }).join(''); }
+// GANTI FUNGSI INI
+function renderServices() {
+    if(!$('servicesList')) return;
+    const srvs = db.services || [];
+    if(srvs.length === 0) {
+        $('servicesList').innerHTML = '<div class="empty-state">Belum ada layanan.</div>';
+        return;
+    }
+    
+    const sortedSrvs = [...srvs].sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+    $('servicesList').innerHTML = sortedSrvs.map(s => {
+        const processesText = (s.processes && s.processes.length > 0) ? s.processes.join(' - ') : 'Tanpa Proses';
+        const pinnedBadge = s.isPinned ? '<span style="background:#e1edff; color:#1769e0; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px;">Disematkan</span>' : '';
+        
+        // Desain UI dirapikan menggunakan Flexbox agar tidak berantakan
+        return `
+        <div class="service-item" style="display:flex; justify-content:space-between; align-items:center; padding:15px; margin-bottom:10px; background:white; border-radius:12px; border:1px solid var(--border);">
+            <div style="flex:1;">
+                <h3 style="font-size:15px; margin-bottom:4px; color:var(--text);">${s.name} ${pinnedBadge}</h3>
+                <p style="font-size:12px; color:var(--muted);">${processesText}</p>
+                <p style="font-size:11px; color:var(--primary); margin-top:4px; font-weight:bold;">Durasi: ${s.duration || '1 Hari'}</p>
+            </div>
+            <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+                <div style="font-weight:bold; color:var(--primary); font-size:14px;">${formatRp(s.price)} / ${s.unit}</div>
+                <div style="display:flex; gap:6px;">
+                    <button onclick="editServicePrice('${s.id}')" style="background:#fef08a; color:#ca8a04; border:none; font-size:11px; font-weight:bold; padding:5px 10px; border-radius:6px; cursor:pointer;">Edit Harga</button>
+                    <button onclick="delService('${s.id}')" style="background:#fee2e2; color:#ef4444; border:none; font-size:11px; font-weight:bold; padding:5px 10px; border-radius:6px; cursor:pointer;">Hapus</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// TAMBAHKAN FUNGSI BARU INI DI BAWAHNYA
+function editServicePrice(id) {
+    const srv = db.services.find(s => s.id === id);
+    if(srv) {
+        const newPrice = prompt(`Masukkan harga baru untuk layanan:\n${srv.name}`, srv.price);
+        if(newPrice !== null && newPrice !== "" && !isNaN(newPrice)) {
+            srv.price = Number(newPrice);
+            saveToCloud();
+            renderServices();
+            showToast("Harga berhasil diperbarui!");
+        }
+    }
+}
+
 function delService(id) { if(confirm("Hapus layanan ini?")) { db.services = db.services.filter(s => s.id !== id); saveToCloud(); renderServices(); } }
 function openTransactionModal() { $('trxCustomer').value = ''; $('trxStatus').value = 'Antrian'; tempTrxServices = []; renderTempServices(); $('transactionModal').classList.add('show'); }
 function renderTempServices() { const container = $('trxTempServices'); if(tempTrxServices.length === 0) { container.innerHTML = '<p style="font-size:12px; color:var(--muted); text-align:center; margin:10px 0;">Belum ada layanan dipilih.</p>'; $('trxTempTotal').textContent = 'Rp 0'; return; } let total = 0; container.innerHTML = tempTrxServices.map((s, i) => { total += s.total; return `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed var(--border); padding-bottom:8px; margin-bottom:8px;"><div><h4 style="font-size:13px; color:var(--text);">${s.name}</h4><p style="font-size:11px; color:var(--muted);">${s.qty} ${s.unit} x ${formatRp(s.price)}</p></div><div style="display:flex; align-items:center; gap:10px;"><span style="font-size:13px; font-weight:bold;">${formatRp(s.total)}</span><button type="button" onclick="removeTempService(${i})" style="color:#ef4444; background:none; border:none;"><i class="fas fa-times-circle"></i></button></div></div>`; }).join(''); $('trxTempTotal').textContent = formatRp(total); }
