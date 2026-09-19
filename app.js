@@ -648,6 +648,8 @@ function openTrxDetail(id) {
     </div>
     
     ${btnPay}
+    <button onclick="cetakNotaThermal('${t.id}')" class="submit-button" style="background:#475569; margin-bottom:10px;"><i class="fas fa-print"></i> Cetak Nota Thermal</button>
+    
     <button onclick="shareWhatsApp('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:20px;"><i class="fab fa-whatsapp"></i> Kirim Nota via WA</button>`; 
     
     $('trxDetailContent').innerHTML = html; showPage('trxDetailPage'); 
