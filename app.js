@@ -224,22 +224,28 @@ function updateDashboardStats() {
     const allTrxs = db.transactions || [];
     let todayIncomeTotal = 0;
     let todayTrxCount = 0;
-    let lateCount = 0; // Menghitung yang terlambat
+    let lateCount = 0; 
     const now = new Date();
 
     allTrxs.forEach(t => {
         const tDate = new Date(t.date).toLocaleDateString('id-ID');
         if (tDate === todayStr) todayTrxCount++;
         
-        if (t.isPaid || (t.payStatus === 'DP' && Number(t.dpAmount) > 0)) {
-            const payDateStr = t.payDate ? new Date(t.payDate).toLocaleDateString('id-ID') : tDate;
-            if (payDateStr === todayStr) {
-                if (t.isPaid) todayIncomeTotal += Number(t.total);
-                else if (t.payStatus === 'DP') todayIncomeTotal += Number(t.dpAmount || 0);
+        // HANYA HITUNG OMZET JIKA STATUS BUKAN "BATAL"
+        if (t.status !== 'Batal') {
+            if (t.isPaid || (t.payStatus === 'DP' && Number(t.dpAmount) > 0)) {
+                const payDateStr = t.payDate ? new Date(t.payDate).toLocaleDateString('id-ID') : tDate;
+                if (payDateStr === todayStr) {
+                    if (t.isPaid || t.payStatus === 'Lunas') {
+                        todayIncomeTotal += Number(t.total);
+                    } else if (t.payStatus === 'DP') {
+                        todayIncomeTotal += Number(t.dpAmount || 0); // Hanya tambahkan uang DP
+                    }
+                }
             }
         }
 
-        // LOGIKA MENGHITUNG KARTU "BELUM SELESAI" (TERLAMBAT)
+        // Hitung transaksi yang terlambat (Belum Selesai)
         if(t.status !== 'Selesai' && t.status !== 'Siap Diambil' && t.status !== 'Batal') {
             let maxDays = 1;
             (t.services || []).forEach(srv => {
@@ -256,7 +262,7 @@ function updateDashboardStats() {
 
     if($('todayIncome')) $('todayIncome').textContent = formatRp(todayIncomeTotal); 
     if($('todayTransactions')) $('todayTransactions').textContent = todayTrxCount; 
-    if($('pendingTransactions')) $('pendingTransactions').textContent = lateCount; // Pakai hitungan Terlambat
+    if($('pendingTransactions')) $('pendingTransactions').textContent = lateCount; 
     if($('totalCustomers')) $('totalCustomers').textContent = (db.customers||[]).length; 
 
     // Inject event listener ke kartu dashboard
@@ -280,6 +286,7 @@ function updateDashboardStats() {
         });
     }, 500);
 }
+
 
 
 function openServiceModal() { if($('serviceForm')) $('serviceForm').reset(); $('srvPrice').value = '0'; $('srvMinQty').value = '1'; $('srvDuration').value = '1 Hari'; $('serviceModal').classList.add('show'); }
