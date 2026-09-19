@@ -34,54 +34,66 @@ function renderCustomers() { if(!$('customersListContainer')) return; const cust
 // --- DASHBOARD KLIK PAKSA FIX ---
 function updateDashboardStats() { 
     const todayStr = new Date().toLocaleDateString('id-ID'); 
-    
-    // Hitung transaksi yang memiliki pembayaran/DP pada hari ini
     const allTrxs = db.transactions || [];
     let todayIncomeTotal = 0;
     let todayTrxCount = 0;
+    let lateCount = 0; // Menghitung yang terlambat
+    const now = new Date();
 
     allTrxs.forEach(t => {
-        // Cek apakah transaksi ini ada pembayaran atau aktivitas hari ini
         const tDate = new Date(t.date).toLocaleDateString('id-ID');
-        if (tDate === todayStr) {
-            todayTrxCount++;
-        }
-        // Omzet hari ini dihitung dari uang yang masuk hari ini (Lunas atau DP)
+        if (tDate === todayStr) todayTrxCount++;
+        
         if (t.isPaid || (t.payStatus === 'DP' && Number(t.dpAmount) > 0)) {
-            // Jika ada catatan tanggal pembayaran spesifik, gunakan itu. Jika belum ada, fallback ke tanggal transaksi.
             const payDateStr = t.payDate ? new Date(t.payDate).toLocaleDateString('id-ID') : tDate;
             if (payDateStr === todayStr) {
                 if (t.isPaid) todayIncomeTotal += Number(t.total);
                 else if (t.payStatus === 'DP') todayIncomeTotal += Number(t.dpAmount || 0);
             }
         }
+
+        // LOGIKA MENGHITUNG KARTU "BELUM SELESAI" (TERLAMBAT)
+        if(t.status !== 'Selesai' && t.status !== 'Siap Diambil' && t.status !== 'Batal') {
+            let maxDays = 1;
+            (t.services || []).forEach(srv => {
+                const dbSrv = (db.services || []).find(ds => ds.name === srv.name);
+                if(dbSrv && dbSrv.duration) {
+                    const days = parseInt(dbSrv.duration);
+                    if(!isNaN(days) && days > maxDays) maxDays = days;
+                }
+            });
+            const deadline = new Date(new Date(t.date).getTime() + (maxDays * 24 * 60 * 60 * 1000));
+            if(now > deadline) lateCount++;
+        }
     });
 
     if($('todayIncome')) $('todayIncome').textContent = formatRp(todayIncomeTotal); 
     if($('todayTransactions')) $('todayTransactions').textContent = todayTrxCount; 
-    if($('pendingTransactions')) $('pendingTransactions').textContent = allTrxs.filter(t => t.status !== 'Selesai' && t.status !== 'Batal').length; 
+    if($('pendingTransactions')) $('pendingTransactions').textContent = lateCount; // Pakai hitungan Terlambat
     if($('totalCustomers')) $('totalCustomers').textContent = (db.customers||[]).length; 
 
+    // Inject event listener ke kartu dashboard
     setTimeout(() => {
         document.querySelectorAll('div').forEach(el => {
             const text = el.innerText || "";
             if(el.classList.contains('dashboard-card') || el.style.background === 'white') {
                 if(text.includes('Omzet Hari Ini') || text.includes('Transaksi Hari Ini')) {
                     el.style.cursor = 'pointer'; el.classList.add('dashboard-card');
-                    el.onclick = () => { showPage('transactionsPage'); renderTransactions('Semua'); };
+                    el.onclick = () => { openDashboardDetail(text.includes('Omzet') ? 'omset' : 'transaksi'); };
                 }
                 if(text.includes('Belum Selesai')) {
                     el.style.cursor = 'pointer'; el.classList.add('dashboard-card');
-                    el.onclick = () => { showPage('transactionsPage'); renderTransactions('Antrian'); };
+                    el.onclick = () => { openDashboardDetail('pending'); };
                 }
                 if(text.includes('Total Pelanggan')) {
                     el.style.cursor = 'pointer'; el.classList.add('dashboard-card');
-                    el.onclick = () => { showPage('customersPage'); };
+                    el.onclick = () => { showPage('customerPage'); };
                 }
             }
         });
     }, 500);
 }
+
 
 function openServiceModal() { if($('serviceForm')) $('serviceForm').reset(); $('srvPrice').value = '0'; $('srvMinQty').value = '1'; $('srvDuration').value = '1 Hari'; $('serviceModal').classList.add('show'); }
 function saveService(e) { e.preventDefault(); if(!db.services) db.services = []; let processes = []; document.querySelectorAll('.srvProcess:checked').forEach(cb => processes.push(cb.value)); db.services.push({ id: Date.now().toString(), name: $('srvName').value, processes: processes, price: Number($('srvPrice').value), unit: $('srvUnit').value, duration: $('srvDuration').value, minQty: Number($('srvMinQty').value), isPinned: $('srvPinned').checked }); saveToCloud(); renderServices(); closeModal('serviceModal'); }
