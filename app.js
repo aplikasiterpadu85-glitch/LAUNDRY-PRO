@@ -490,15 +490,25 @@ function renderTransactions(filter = 'Semua') {
 
 
 // --- WA NOTA ASLI ARSY LAUNDRY FIX ---
-function shareWhatsApp(id) { 
-    const t = db.transactions.find(x => x.id === id); if(!t) return; 
-    const d = new Date(t.date); 
-    const wkt = d.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) + ', ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}); 
-    let srvsText = ''; 
-    (t.services || [{name: t.service, qty: t.qty, unit: t.unit, price: t.price, total: t.total}]).forEach(s => { srvsText += `${s.name}\n${s.qty} x ${formatRp(s.price)} = ${formatRp(s.total)}\n`; }); 
-    const text = `*${db.outlet.name}*\n${db.outlet.address}, ${db.outlet.city}\n${db.outlet.phone}\n-------------------------\nPelanggan: *${t.customer}*\nNo. Transaksi: ${t.id}\nWaktu: ${wkt}\n-------------------------\nLayanan:\n${srvsText}-------------------------\nTotal: *${formatRp(t.total)}*\nStatus: *${t.isPaid ? 'Lunas' : 'Belum Lunas'}*`; 
-    if (navigator.share) navigator.share({ title: 'Nota ' + db.outlet.name, text: text }).catch(() => {}); else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`); 
-                            }
+function shareWhatsApp(id) {
+    const t = db.transactions.find(x => x.id === id); if(!t) return;
+    
+    // Logika menyusun teks pembayaran
+    let paymentInfo = '';
+    if (t.isPaid || t.payStatus === 'Lunas') {
+        paymentInfo = `Total: ${formatRp(t.total)}\nBayar: ${formatRp(t.dpAmount || t.total)}\nKembalian: ${formatRp(t.kembalian || 0)}\nStatus: Lunas`;
+    } else if (t.payStatus === 'DP') {
+        paymentInfo = `Total: ${formatRp(t.total)}\nDP Masuk: ${formatRp(t.dpAmount)}\nSisa Tagihan: ${formatRp(t.total - t.dpAmount)}\nStatus: DP`;
+    } else {
+        paymentInfo = `Total: ${formatRp(t.total)}\nStatus: Belum Lunas`;
+    }
+
+    // Menyusun isi pesan WA
+    const text = `*NOTA ${currentUser.laundryName || 'LAUNDRY'}*\n\nPelanggan: ${t.customer}\nNo. Transaksi: ${t.id}\n\n*Layanan:*\n${(t.services||[{name:t.service, qty:t.qty, unit:t.unit, price:t.price, total:t.total}]).map(s=>`- ${s.name} (${s.qty}${s.unit||'kg'} x ${formatRp(s.price)})\n  Subtotal:${formatRp(s.total)}`).join('\n')}\n\n*Pembayaran:*\n${paymentInfo}\n\nTerima kasih!`;
+    
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+}
+
 let editingTrxId = null; // Tambahkan penanda ini di luar fungsi
 
 // GANTI FUNGSI openTrxDetail SECARA KESELURUHAN DENGAN INI
