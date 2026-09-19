@@ -142,19 +142,27 @@ function editCustomer(id, oldName) {
     }
 }
 
+// GANTI FUNGSI deleteCustomer INI SECARA KESELURUHAN
 function deleteCustomer(id, name) {
-    // Peringatan sebelum menghapus
-    if (confirm(`Yakin ingin menghapus pelanggan "${name}" dari daftar master?\n(Catatan: Riwayat nota transaksinya tidak akan ikut terhapus)`)) {
+    if (confirm(`Yakin ingin menghapus pelanggan "${name}" dari daftar master?\n(PERINGATAN: Semua riwayat transaksi milik pelanggan ini akan ikut terhapus secara permanen!)`)) {
         
-        // Saring dan buang pelanggan dengan ID tersebut
+        // 1. Hapus pelanggannya dari buku master
         db.customers = db.customers.filter(c => c.id !== id);
         
+        // 2. HAPUS SEMUA TRANSAKSI MILIK PELANGGAN INI (Ini yang membuat bersih total)
+        if (db.transactions) {
+            db.transactions = db.transactions.filter(t => t.customer.toLowerCase() !== name.toLowerCase());
+        }
+        
+        // 3. Simpan dan segarkan semua tampilan
         saveToCloud();
         renderCustomers();
-        updateDashboardStats(); // Perbarui angka total pelanggan di Dashboard
-        showToast("Pelanggan berhasil dihapus dari daftar!");
+        renderTransactions('Semua'); // Segarkan daftar transaksi agar nama yang dihapus langsung lenyap
+        updateDashboardStats(); // Perbarui perhitungan angka omzet dan transaksi di dashboard
+        showToast("Pelanggan beserta seluruh transaksinya berhasil dihapus!");
     }
 }
+
 function openCustomerDetail(customerName) {
     if($('customerDetailTitle'))$('customerDetailTitle').textContent = 'Detail: ' + customerName;
     
