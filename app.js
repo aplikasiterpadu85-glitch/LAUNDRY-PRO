@@ -21,7 +21,6 @@ async function saveToCloud() { saveLocal(); showToast("Menyimpan data..."); try 
 function saveLocal() { localStorage.setItem('arsy_db', JSON.stringify(db)); }
 function showToast(msg) { const t = $('toast'); if(!t) return; t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
 function closeModal(id) { $(id).classList.remove('show'); }
-function showPage(pageId, btn = null) { document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); if($(pageId)) $(pageId).classList.add('active'); if (btn && btn.classList.contains('nav-button')) { document.querySelectorAll('.nav-button').forEach(b => b.classList.remove('active')); btn.classList.add('active'); } }
 function updateUI() { document.querySelectorAll('.dynamic-outlet-name').forEach(el => el.textContent = db.outlet.name); if($('akunOutletAddress')) $('akunOutletAddress').textContent = `${db.outlet.address}, ${db.outlet.city}`; if($('akunOutletPhone')) $('akunOutletPhone').textContent = db.outlet.phone; if($('outName')) { $('outName').value = db.outlet.name; $('outPhone').value = db.outlet.phone; $('outCity').value = db.outlet.city; $('outAddress').value = db.outlet.address; } if($('nHideLogo')) { const nc = db.notaCustom; $('nHideLogo').checked = nc.hideLogo; $('nHideOutlet').checked = nc.hideOutlet; $('nHideAddress').checked = nc.hideAddress; $('nHideCashier').checked = nc.hideCashier; $('nHideCustomer').checked = nc.hideCustomer; $('nShowCat').checked = nc.showCat; $('nHideMsg').checked = nc.hideMsg; $('nHidePerfume').checked = nc.hidePerfume; $('nHidePowered').checked = nc.hidePowered; $('nShowDay').checked = nc.showDay; } renderUsers(); renderServices(); renderTransactions('Semua'); updateDashboardStats(); renderCustomers(); }
 function saveOutlet(e) { e.preventDefault(); db.outlet = { name:$('outName').value, phone:$('outPhone').value, city:$('outCity').value, address:$('outAddress').value }; saveToCloud(); updateUI(); showPage('akunPage'); }
 function saveNotaCustom(e) { e.preventDefault(); db.notaCustom = { hideLogo: $('nHideLogo').checked, hideOutlet: $('nHideOutlet').checked, hideAddress: $('nHideAddress').checked, hideCashier: $('nHideCashier').checked, hideCustomer: $('nHideCustomer').checked, showCat: $('nShowCat').checked, hideMsg: $('nHideMsg').checked, hidePerfume: $('nHidePerfume').checked, hidePowered: $('nHidePowered').checked, showDay: $('nShowDay').checked }; saveToCloud(); showToast("Pengaturan Nota Disimpan!"); showPage('akunPage'); }
@@ -97,11 +96,76 @@ function addTempService() { const qty = Number($('iqQty').value); if(qty <= 0) r
 function removeTempService(i) { tempTrxServices.splice(i,1); renderTempServices(); }
 function saveTransaction(e) { e.preventDefault(); if(tempTrxServices.length === 0) return alert("Tambahkan minimal 1 layanan!"); if(!db.transactions) db.transactions = []; if(!db.customers) db.customers = []; const customerName = $('trxCustomer').value.trim(); const total = tempTrxServices.reduce((sum, s) => sum + s.total, 0); let cust = db.customers.find(c => c.name.toLowerCase() === customerName.toLowerCase()); if(!cust) db.customers.push({ id: Date.now().toString(), name: customerName, totalTrx: 1 }); else cust.totalTrx = (cust.totalTrx || 0) + 1; const newTrxId = 'TRX/' + Date.now().toString().slice(3); db.transactions.unshift({ id: newTrxId, date: new Date().toISOString(), customer: customerName, services: [...tempTrxServices], total: total, status: $('trxStatus').value, isPaid: false, payMethod: '-' }); saveToCloud(); renderTransactions('Semua'); renderCustomers(); updateDashboardStats(); closeModal('transactionModal'); showToast("Transaksi Berhasil Dibuat! ✔️"); setTimeout(() => { openTrxDetail(newTrxId); }, 200); }
 // --- KODE PENGGANTI (PASTE DARI SINI) ---
+// 1. GANTI FUNGSI showPage
+function showPage(pageId, btn = null) { 
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); 
+    if($(pageId))$(pageId).classList.add('active'); 
+    
+    if (btn && btn.classList.contains('nav-button')) { 
+        document.querySelectorAll('.nav-button').forEach(b => b.classList.remove('active')); 
+        btn.classList.add('active'); 
+        
+        // JIKA MENEKAN TOMBOL "DAFTAR" DI MENU BAWAH, RESET TAMPILAN KE NORMAL
+        if(pageId === 'transactionsPage') {
+            document.querySelectorAll('.trans-tab').forEach(b => { 
+                b.style.background = '#f4f7fb'; 
+                b.style.color = 'var(--muted)'; 
+            });
+            renderTransactions('Semua');
+        }
+    } 
+}
+
+// 2. GANTI FUNGSI openDashboardDetail
+function openDashboardDetail(type) {
+    showPage('transactionsPage');
+    if(type === 'omset') {
+        renderTransactions('OmzetHariIni');
+    } else if(type === 'transaksi') {
+        renderTransactions('TransaksiHariIni');
+    } else if(type === 'pending') {
+        renderTransactions('BelumSelesai');
+    }
+}
+
+// 3. GANTI FUNGSI renderTransactions
 function renderTransactions(filter = 'Semua') { 
     let trxs = db.transactions || []; 
     const todayStr = new Date().toLocaleDateString('id-ID');
-    const now = new Date();
+    
+    // ==== UI PINTAR: Sembunyikan tab dan buat Header Khusus ====
+    const tabContainer = document.querySelector('.trans-tab') ? document.querySelector('.trans-tab').parentElement : null;
+    let customHeader = document.getElementById('customTrxHeader');
+    
+    if (!customHeader && tabContainer) {
+        customHeader = document.createElement('div');
+        customHeader.id = 'customTrxHeader';
+        customHeader.className = 'report-header'; // Pakai style bawaan CSS jenengan
+        customHeader.style.padding = '15px';
+        customHeader.style.borderBottom = '1px solid var(--border)';
+        customHeader.innerHTML = `
+            <button class="report-back" onclick="showPage('dashboardPage')" style="margin:0;">‹</button>
+            <h2 id="customTrxTitle" style="font-size:16px; font-weight:bold; margin-left:15px; margin-top:0px;"></h2>
+        `;
+        tabContainer.parentNode.insertBefore(customHeader, tabContainer);
+    }
 
+    if (customHeader && tabContainer) {
+        // Jika mode filter dari Dashboard
+        if (['OmzetHariIni', 'TransaksiHariIni', 'BelumSelesai'].includes(filter)) {
+            tabContainer.style.display = 'none';
+            customHeader.style.display = 'flex';
+            if(filter === 'OmzetHariIni') document.getElementById('customTrxTitle').textContent = 'Omzet Hari Ini';
+            if(filter === 'TransaksiHariIni') document.getElementById('customTrxTitle').textContent = 'Transaksi Hari Ini';
+            if(filter === 'BelumSelesai') document.getElementById('customTrxTitle').textContent = 'Belum Selesai';
+        } else {
+            // Jika mode normal (Tab Semua/Antrian/Proses)
+            tabContainer.style.display = 'flex';
+            customHeader.style.display = 'none';
+        }
+    }
+
+    // ==== LOGIKA FILTER DATA ====
     if(filter === 'OmzetHariIni') {
         trxs = trxs.filter(t => {
             const tDate = new Date(t.date).toLocaleDateString('id-ID');
@@ -112,26 +176,15 @@ function renderTransactions(filter = 'Semua') {
     else if(filter === 'TransaksiHariIni') {
         trxs = trxs.filter(t => new Date(t.date).toLocaleDateString('id-ID') === todayStr);
     }
-    else if(filter === 'Terlambat') {
-        trxs = trxs.filter(t => {
-            if(t.status === 'Selesai' || t.status === 'Siap Diambil' || t.status === 'Batal') return false;
-            let maxDays = 1; 
-            (t.services || []).forEach(srv => {
-                const dbSrv = (db.services || []).find(ds => ds.name === srv.name);
-                if(dbSrv && dbSrv.duration) {
-                    const days = parseInt(dbSrv.duration); 
-                    if(!isNaN(days) && days > maxDays) maxDays = days;
-                }
-            });
-            const trxDate = new Date(t.date);
-            const deadline = new Date(trxDate.getTime() + (maxDays * 24 * 60 * 60 * 1000));
-            return now > deadline; 
-        });
+    else if(filter === 'BelumSelesai') {
+        // Disamakan persis dengan hitungan kartu Dashboard
+        trxs = trxs.filter(t => t.status !== 'Selesai' && t.status !== 'Batal');
     }
     else if(filter !== 'Semua') {
         trxs = trxs.filter(t => t.status === filter);
     }
     
+    // ==== RENDER HTML TAMPILAN TRANSAKSI ====
     const html = trxs.map(t => { 
         const d = new Date(t.date);
         const dateStr = d.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) + ', ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
@@ -150,7 +203,7 @@ function renderTransactions(filter = 'Semua') {
             </div>`; 
     }).join(''); 
     
-    if($('allTransactions'))$('allTransactions').innerHTML = html || '<div class="empty-state">Belum ada transaksi di tab ini.</div>'; 
+    if($('allTransactions'))$('allTransactions').innerHTML = html || '<div class="empty-state">Tidak ada transaksi di daftar ini.</div>'; 
     if($('recentTransactions') && filter === 'Semua') {$('recentTransactions').innerHTML = trxs.slice(0,5).map(t => {
             const d = new Date(t.date);
             const dateStr = d.toLocaleDateString('id-ID', {day:'numeric', month:'short'}) + ', ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
@@ -168,25 +221,7 @@ function renderTransactions(filter = 'Semua') {
         }).join('') || '<div class="empty-state">Belum ada transaksi.</div>'; 
     } 
 }
-
-function openDashboardDetail(type) {
-    showPage('transactionsPage');
     
-    document.querySelectorAll('.trans-tab').forEach(b => {
-        b.style.background = '#f4f7fb'; 
-        b.style.color = 'var(--muted)';
-    });
-
-    if(type === 'omset') {
-        renderTransactions('OmzetHariIni');
-    } else if(type === 'transaksi') {
-        renderTransactions('TransaksiHariIni');
-    } else if(type === 'pending') {
-        renderTransactions('Terlambat');
-    }
-}
-// --- BATAS KODE PENGGANTI ---
-
 
 
 // --- WA NOTA ASLI ARSY LAUNDRY FIX ---
