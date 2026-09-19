@@ -29,7 +29,75 @@ function openUserModal() { $('userName').value=''; $('userPin').value=''; $('use
 function saveUser(e) { e.preventDefault(); db.users.push({ id: Date.now().toString(), name: $('userName').value, role: $('userRole').value, pin: $('userPin').value }); saveToCloud(); renderUsers(); closeModal('userModal'); }
 function deleteUser(id) { if(db.users.length <= 1) return alert("Minimal harus ada 1 admin!"); if(confirm("Hapus karyawan ini?")) { db.users = db.users.filter(u => u.id !== id); saveToCloud(); renderUsers(); } }
 function renderUsers() { const c = $('usersListContainer'); if(!c) return; c.innerHTML = db.users.map(u => `<div style="background:white; padding:15px; border-radius:12px; border:1px solid var(--border); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;"><div><h3 style="font-size:15px;">${u.name}</h3><span style="font-size:11px; background:#e1edff; padding:2px 6px; border-radius:6px; color:#1769e0; font-weight:bold;">${u.role}</span><p style="font-size:12px; color:var(--muted); margin-top:5px;">PIN: ${u.pin}</p></div><button onclick="deleteUser('${u.id}')" style="background:#fee2e2; color:#dc2626; border:none; padding:8px; border-radius:8px; font-weight:bold;">Hapus</button></div>`).join(''); }
-function renderCustomers() { if(!$('customersListContainer')) return; const custs = db.customers || []; $('customersListContainer').innerHTML = custs.map(c => `<div style="background:white; padding:12px 15px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px;"><div style="width:40px; height:40px; border-radius:50%; background:#e1edff; color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px;">${c.name.charAt(0).toUpperCase()}</div><div><h3 style="font-size:15px; color:var(--text);">${c.name}</h3><p style="font-size:12px; color:var(--muted);">Total Transaksi: ${c.totalTrx}</p></div></div>`).join('') || '<div class="empty-state">Belum ada pelanggan.</div>'; if($('totalCustomers')) $('totalCustomers').textContent = custs.length; }
+// GANTI FUNGSI INI KESELURUHAN
+function renderCustomers() { 
+    if(!$('customersListContainer')) return; 
+    const custs = db.customers || []; 
+    
+    $('customersListContainer').innerHTML = custs.map(c => `
+        <div style="background:white; padding:12px 15px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; transition:0.2s;">
+            
+            <!-- Area Kiri (Bisa diklik untuk lihat riwayat) -->
+            <div onclick="openCustomerDetail('${c.name}')" style="cursor:pointer; display:flex; align-items:center; gap:12px; flex:1;">
+                <div style="width:40px; height:40px; border-radius:50%; background:#e1edff; color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px;">
+                    ${c.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                    <h3 style="font-size:15px; color:var(--text); margin-bottom:2px;">${c.name}</h3>
+                    <p style="font-size:12px; color:var(--muted); margin:0;">Total Transaksi: ${c.totalTrx || 0}</p>
+                </div>
+            </div>
+
+            <!-- Area Kanan (Tombol Edit & Hapus) -->
+            <div style="display:flex; gap:6px;">
+                <button onclick="editCustomer('${c.id}', '${c.name}')" style="background:#fef08a; color:#ca8a04; border:none; font-size:11px; font-weight:bold; padding:6px 10px; border-radius:6px; cursor:pointer;">Edit</button>
+                <button onclick="deleteCustomer('${c.id}', '${c.name}')" style="background:#fee2e2; color:#ef4444; border:none; font-size:11px; font-weight:bold; padding:6px 10px; border-radius:6px; cursor:pointer;">Hapus</button>
+            </div>
+            
+        </div>`).join('') || '<div class="empty-state">Belum ada pelanggan.</div>'; 
+        
+    if($('totalCustomers'))$('totalCustomers').textContent = custs.length; 
+}
+// TAMBAHKAN DUA FUNGSI BARU INI
+function editCustomer(id, oldName) {
+    const newName = prompt("Ubah nama pelanggan:", oldName);
+    
+    // Cek jika nama baru diisi dan berbeda dari yang lama
+    if (newName !== null && newName.trim() !== "" && newName !== oldName) {
+        
+        // 1. Ubah nama di buku induk pelanggan
+        const cust = db.customers.find(c => c.id === id);
+        if (cust) cust.name = newName.trim();
+
+        // 2. Ubah juga nama pelanggan di SEMUA riwayat transaksinya agar tidak error
+        if (db.transactions) {
+            db.transactions.forEach(t => {
+                if (t.customer.toLowerCase() === oldName.toLowerCase()) {
+                    t.customer = newName.trim();
+                }
+            });
+        }
+        
+        saveToCloud();
+        renderCustomers();
+        renderTransactions('Semua'); // Segarkan daftar transaksi
+        showToast("Nama pelanggan berhasil diubah!");
+    }
+}
+
+function deleteCustomer(id, name) {
+    // Peringatan sebelum menghapus
+    if (confirm(`Yakin ingin menghapus pelanggan "${name}" dari daftar master?\n(Catatan: Riwayat nota transaksinya tidak akan ikut terhapus)`)) {
+        
+        // Saring dan buang pelanggan dengan ID tersebut
+        db.customers = db.customers.filter(c => c.id !== id);
+        
+        saveToCloud();
+        renderCustomers();
+        updateDashboardStats(); // Perbarui angka total pelanggan di Dashboard
+        showToast("Pelanggan berhasil dihapus dari daftar!");
+    }
+}
 
 // --- DASHBOARD KLIK PAKSA FIX ---
 function updateDashboardStats() { 
