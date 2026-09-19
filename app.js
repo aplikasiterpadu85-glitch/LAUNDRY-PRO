@@ -549,20 +549,18 @@ function shareWhatsApp(id) {
 
 let editingTrxId = null; // Tambahkan penanda ini di luar fungsi
 
-// GANTI FUNGSI openTrxDetail SECARA KESELURUHAN DENGAN INI
+// GANTI KESELURUHAN FUNGSI INI
 function openTrxDetail(id) { 
     currentViewTrxId = id; if($('trxMenuDropdown'))$('trxMenuDropdown').style.display = 'none'; 
     const t = db.transactions.find(x => x.id === id); if(!t) return; 
     
-    // Format Tanggal Masuk
     const entryDate = new Date(t.date); 
     const dateStr = entryDate.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) + ', ' + entryDate.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}); 
     
-    // Hitung Estimasi Selesai
     let maxDays = 1; 
     const srvs = t.services || [{name: t.service, qty: t.qty, unit: t.unit, price: t.price, total: t.total}];
     srvs.forEach(s => {
-        const dbSrv = (db.services || []).find(ds => ds.name === s.name);
+        const dbSrv = (db.services || []).find(ds => ds.name === srv.name);
         if(dbSrv && dbSrv.duration) {
             const days = parseInt(dbSrv.duration); 
             if(!isNaN(days) && days > maxDays) maxDays = days;
@@ -576,7 +574,6 @@ function openTrxDetail(id) {
     let btnNext = (nextSt && t.status !== 'Batal') ? `<button onclick="updateStatusFromDetail('${t.id}', '${nextSt}')" class="submit-button" style="margin-top:15px; background:${color}; font-size:15px;">${nextSt === 'Proses' ? 'Proses Transaksi' : (nextSt === 'Siap Diambil' ? 'Transaksi Siap Diambil' : 'Selesaikan Transaksi')}</button>` : ''; 
     let btnPrev = (cIdx > 0 && t.status !== 'Batal') ? `<button onclick="updateStatusFromDetail('${t.id}', '${flow[cIdx-1]}')" class="submit-button" style="margin-top:10px; background:white; color:var(--text); border:1px solid var(--border);">Kembalikan Status</button>` : ''; 
     
-    // Tampilan Detail Pembayaran (Dengan Kembalian)
     let paymentDetailHTML = '';
     if (t.isPaid || t.payStatus === 'DP') {
         paymentDetailHTML = `
@@ -613,6 +610,7 @@ function openTrxDetail(id) {
         </div>
     `).join(''); 
     
+    // PEMBUNGKUS HTML - Tombol Cetak Nota sudah diatur posisinya dengan benar di sini
     const html = `
     <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
         <p style="font-size:12px; color:var(--muted); margin-bottom:4px;">No. Transaksi: <span style="color:var(--text); font-weight:bold;">${t.id}</span></p>
@@ -648,8 +646,7 @@ function openTrxDetail(id) {
     </div>
     
     ${btnPay}
-    <button onclick="cetakNotaThermal('${t.id}')" class="submit-button" style="background:#475569; margin-bottom:10px;"><i class="fas fa-print"></i> Cetak Nota Thermal</button>
-    
+    <button onclick="cetakNotaThermal('${t.id}')" class="submit-button" style="background:#475569; color:white; margin-bottom:10px;"><i class="fas fa-print"></i> Cetak Nota Thermal</button>
     <button onclick="shareWhatsApp('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:20px;"><i class="fab fa-whatsapp"></i> Kirim Nota via WA</button>`; 
     
     $('trxDetailContent').innerHTML = html; showPage('trxDetailPage'); 
