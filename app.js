@@ -96,12 +96,12 @@ function openInputQty(id, name, price, unit) { $('iqId').value = id; $('iqName')
 function addTempService() { const qty = Number($('iqQty').value); if(qty <= 0) return alert('Jumlah tidak valid'); const price = Number($('iqPrice').value); tempTrxServices.push({ id: $('iqId').value, name: $('iqName').textContent, qty: qty, price: price, unit: $('iqUnit').value, total: qty * price }); closeModal('inputQtyModal'); closeModal('selectServiceModal'); renderTempServices(); }
 function removeTempService(i) { tempTrxServices.splice(i,1); renderTempServices(); }
 function saveTransaction(e) { e.preventDefault(); if(tempTrxServices.length === 0) return alert("Tambahkan minimal 1 layanan!"); if(!db.transactions) db.transactions = []; if(!db.customers) db.customers = []; const customerName = $('trxCustomer').value.trim(); const total = tempTrxServices.reduce((sum, s) => sum + s.total, 0); let cust = db.customers.find(c => c.name.toLowerCase() === customerName.toLowerCase()); if(!cust) db.customers.push({ id: Date.now().toString(), name: customerName, totalTrx: 1 }); else cust.totalTrx = (cust.totalTrx || 0) + 1; const newTrxId = 'TRX/' + Date.now().toString().slice(3); db.transactions.unshift({ id: newTrxId, date: new Date().toISOString(), customer: customerName, services: [...tempTrxServices], total: total, status: $('trxStatus').value, isPaid: false, payMethod: '-' }); saveToCloud(); renderTransactions('Semua'); renderCustomers(); updateDashboardStats(); closeModal('transactionModal'); showToast("Transaksi Berhasil Dibuat! ✔️"); setTimeout(() => { openTrxDetail(newTrxId); }, 200); }
+// --- KODE PENGGANTI (PASTE DARI SINI) ---
 function renderTransactions(filter = 'Semua') { 
     let trxs = db.transactions || []; 
     const todayStr = new Date().toLocaleDateString('id-ID');
     const now = new Date();
 
-    // Logika 1: Omzet Hari Ini -> Hanya tampilkan yang bayar (Lunas/DP) HARI INI
     if(filter === 'OmzetHariIni') {
         trxs = trxs.filter(t => {
             const tDate = new Date(t.date).toLocaleDateString('id-ID');
@@ -109,17 +109,12 @@ function renderTransactions(filter = 'Semua') {
             return (t.isPaid || (t.payStatus === 'DP' && Number(t.dpAmount) > 0)) && payDateStr === todayStr;
         });
     } 
-    // Logika 2: Transaksi Hari Ini -> Hanya tampilkan nota yang dibuat HARI INI
     else if(filter === 'TransaksiHariIni') {
         trxs = trxs.filter(t => new Date(t.date).toLocaleDateString('id-ID') === todayStr);
     }
-    // Logika 3: Belum Selesai (Terlambat) -> Lewat dari batas estimasi durasi layanan
     else if(filter === 'Terlambat') {
         trxs = trxs.filter(t => {
-            // Abaikan jika sudah selesai, diambil, atau batal
             if(t.status === 'Selesai' || t.status === 'Siap Diambil' || t.status === 'Batal') return false;
-
-            // Cari durasi layanan dari master data (misal: "1 Hari", "2 Hari")
             let maxDays = 1; 
             (t.services || []).forEach(srv => {
                 const dbSrv = (db.services || []).find(ds => ds.name === srv.name);
@@ -128,34 +123,60 @@ function renderTransactions(filter = 'Semua') {
                     if(!isNaN(days) && days > maxDays) maxDays = days;
                 }
             });
-
-            // Hitung tanggal deadline dan bandingkan dengan waktu saat ini
             const trxDate = new Date(t.date);
             const deadline = new Date(trxDate.getTime() + (maxDays * 24 * 60 * 60 * 1000));
             return now > deadline; 
         });
     }
-    // Logika Bawaan: Filter Tab Status (Antrian, Proses, Selesai)
     else if(filter !== 'Semua') {
         trxs = trxs.filter(t => t.status === filter);
     }
     
-    // --- JANGAN UBAH KODE DI BAWAH INI ---
     const html = trxs.map(t => { 
         const d = new Date(t.date);
-        // ... (dan seterusnya tetap sama seperti kode asli jenengan)
+        const dateStr = d.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) + ', ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
         
+        return `
+            <div class="transaction-item" onclick="openTrxDetail('${t.id}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border); margin-bottom:10px;">
+                <div class="item-main">
+                    <h3 style="margin-bottom:2px; font-size:14px; color:var(--text);">${t.customer}</h3>
+                    <p style="font-size:11px; color:var(--muted); margin-bottom:4px;">${t.id} • ${dateStr}</p>
+                    <span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span>
+                </div>
+                <div class="item-price" style="text-align:right;">
+                    <span style="font-size:14px; font-weight:bold; color:var(--primary);">${formatRp(t.total)}</span><br>
+                    <small style="color:${t.isPaid?'#16a34a':(t.payStatus==='DP'?'#d97706':'#ea8b00')}; font-weight:bold;">${t.isPaid?'Lunas':(t.payStatus==='DP'?'DP':'Belum Lunas')}</small>
+                </div>
+            </div>`; 
+    }).join(''); 
+    
+    if($('allTransactions'))$('allTransactions').innerHTML = html || '<div class="empty-state">Belum ada transaksi di tab ini.</div>'; 
+    if($('recentTransactions') && filter === 'Semua') {$('recentTransactions').innerHTML = trxs.slice(0,5).map(t => {
+            const d = new Date(t.date);
+            const dateStr = d.toLocaleDateString('id-ID', {day:'numeric', month:'short'}) + ', ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+            return `
+                <div class="transaction-item" onclick="openTrxDetail('${t.id}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border); margin-bottom:10px;">
+                    <div class="item-main">
+                        <h3 style="margin-bottom:2px; font-size:14px; color:var(--text);">${t.customer}</h3>
+                        <p style="font-size:11px; color:var(--muted); margin-bottom:4px;">${t.id} • ${dateStr}</p>
+                        <span class="status status-${t.status.toLowerCase().replace(' ','')}">${t.status}</span>
+                    </div>
+                    <div class="item-price" style="text-align:right;">
+                        <span style="font-size:14px; font-weight:bold; color:var(--primary);">${formatRp(t.total)}</span>
+                    </div>
+                </div>`;
+        }).join('') || '<div class="empty-state">Belum ada transaksi.</div>'; 
+    } 
+}
 
 function openDashboardDetail(type) {
     showPage('transactionsPage');
     
-    // Matikan sorotan (warna aktif) pada semua tab di halaman transaksi
     document.querySelectorAll('.trans-tab').forEach(b => {
         b.style.background = '#f4f7fb'; 
         b.style.color = 'var(--muted)';
     });
 
-    // Kirim perintah filter khusus berdasarkan kartu yang diklik
     if(type === 'omset') {
         renderTransactions('OmzetHariIni');
     } else if(type === 'transaksi') {
@@ -164,6 +185,8 @@ function openDashboardDetail(type) {
         renderTransactions('Terlambat');
     }
 }
+// --- BATAS KODE PENGGANTI ---
+
 
 
 // --- WA NOTA ASLI ARSY LAUNDRY FIX ---
