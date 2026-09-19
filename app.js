@@ -620,42 +620,68 @@ function openPaymentModal(id) {
     $('payMethodSelect').value = t.payMethod && t.payMethod !== '-' ? t.payMethod : 'Tunai';
     $('paymentModal').classList.add('show');
 }
+// GANTI FUNGSI confirmPayment DENGAN INI
 function confirmPayment() {
     if(!currentViewTrxId) return;
     const t = db.transactions.find(x => x.id === currentViewTrxId); if(!t) return;
     
     const status = $('payStatusSelect').value;
     const dibayar = Number($('payAmountInput').value) || 0;
-
-    t.payDate = new Date().toISOString(); // Catat waktu pembayaran hari ini
+    const totalTagihan = Number(t.total) || 0; // Pastikan jadi angka absolut
 
     if (status === 'Lunas') {
-        if (dibayar > 0 && dibayar < t.total) {
+        if (dibayar > 0 && dibayar < totalTagihan) {
             alert("Uang yang dibayar kurang dari total tagihan!");
             return;
         }
         t.isPaid = true;
         t.payStatus = 'Lunas';
         t.dpAmount = dibayar;
+        // Hitung ulang secara paksa di sini
+        t.kembalian = dibayar > totalTagihan ? (dibayar - totalTagihan) : 0; 
     } else if (status === 'DP') {
-        if (dibayar <= 0 || dibayar >= t.total) {
+        if (dibayar <= 0 || dibayar >= totalTagihan) {
             alert("Jumlah DP harus lebih dari 0 dan kurang dari total tagihan!");
             return;
         }
         t.isPaid = false;
         t.payStatus = 'DP';
         t.dpAmount = dibayar;
+        t.kembalian = 0;
     } else {
         t.isPaid = false;
         t.payStatus = 'Belum Lunas';
         t.dpAmount = 0;
+        t.kembalian = 0;
     }
     
+    t.payDate = new Date().toISOString();
     t.payMethod = $('payMethodSelect').value;
-    saveToCloud(); closeModal('paymentModal');
-    openTrxDetail(currentViewTrxId); renderTransactions('Semua'); updateDashboardStats();
+    
+    saveToCloud(); 
+    closeModal('paymentModal');
+    openTrxDetail(currentViewTrxId); 
+    renderTransactions('Semua'); 
+    updateDashboardStats();
     showToast("Pembayaran Berhasil Disimpan! ✔️");
 }
+
+// TAMBAHKAN FUNGSI INI AGAR KOTAK PENCARIAN BISA BEKERJA SAAT DIKETIK
+window.renderAllTransactions = function() {
+    let activeTab = 'Semua';
+    const activeBtn = document.querySelector('.trans-tab.active');
+    if(activeBtn) activeTab = activeBtn.innerText.trim();
+    
+    const customHeader = document.getElementById('customTrxHeader');
+    if (customHeader && customHeader.style.display !== 'none') {
+        const title = document.getElementById('customTrxTitle').textContent;
+        if(title === 'Omzet Hari Ini') activeTab = 'OmzetHariIni';
+        if(title === 'Transaksi Hari Ini') activeTab = 'TransaksiHariIni';
+        if(title === 'Belum Selesai') activeTab = 'BelumSelesai';
+    }
+    renderTransactions(activeTab);
+}
+
 
 
 function toggleTrxMenu() { const m = $('trxMenuDropdown'); if(m) m.style.display = m.style.display === 'none' ? 'block' : 'none'; }
