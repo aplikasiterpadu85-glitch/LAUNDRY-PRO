@@ -379,43 +379,6 @@ function openTrxDetail(id) {
 }
 
     
-
-    const srvs = t.services || [{name: t.service, qty: t.qty, unit: t.unit, price: t.price, total: t.total}]; 
-    
-    // Logika Daftar Layanan yang Bisa Diedit
-    let srvsHtml = srvs.map((s, idx) => `
-        <div style="padding-top:12px; border-top:1px dashed var(--border); margin-top:10px;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                <h4 style="font-size:14px; color:var(--text);">${s.name}</h4>
-                <div style="font-weight:bold; font-size:14px;">${formatRp(s.total)}</div>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div style="font-size:12px; color:var(--muted); background:#f8fafc; padding:4px 8px; border-radius:6px; border:1px solid var(--border); display:flex; align-items:center; gap:8px;">
-                    <span onclick="editTrxServiceQty('${t.id}', ${idx})" style="color:var(--primary); font-weight:bold; cursor:pointer;"><i class="fas fa-edit"></i> Qty</span>
-                    <span>|</span>
-                    <span>${s.qty} ${s.unit || 'kg'} x ${formatRp(s.price)}</span>
-                </div>
-                <button onclick="removeTrxService('${t.id}', ${idx})" style="background:transparent; color:#ef4444; border:none; font-size:12px; font-weight:bold;"><i class="fas fa-trash"></i> Hapus</button>
-            </div>
-        </div>
-    `).join(''); 
-    
-    const html = `<div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;"><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">No. Transaksi: <span style="color:var(--text); font-weight:bold;">${t.id}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Status: <span style="color:${color}; font-weight:bold;">${t.status}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:4px;">Kasir: <span style="color:var(--text); font-weight:bold;">${currentUser.name}</span></p><p style="font-size:12px; color:var(--muted); margin-bottom:0;">Masuk: <span style="color:var(--text); font-weight:bold;">${dateStr}</span></p></div><div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;"><p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PELANGGAN</p><div style="display:flex; align-items:center; gap:12px;"><div style="width:40px; height:40px; border-radius:50%; background:#e1edff; color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px;">${t.customer.charAt(0).toUpperCase()}</div><h3 style="font-size:16px;">${t.customer}</h3></div></div>
-    
-    <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <p style="font-size:11px; color:var(--muted); font-weight:bold; margin:0;">LAYANAN LAUNDRY</p>
-            <button onclick="editingTrxId='${t.id}'; openSelectServiceModal()" style="background:#e1edff; color:var(--primary); border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:bold;">+ Tambah</button>
-        </div>
-        ${srvsHtml}
-    </div>
-    
-    ${btnNext}${btnPrev}<div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-top:20px; margin-bottom:15px;"><p style="font-size:11px; color:var(--muted); font-weight:bold; margin-bottom:12px;">INFO PEMBAYARAN</p><div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Total Transaksi</span><span style="font-size:15px; font-weight:bold;">${formatRp(t.total)}</span></div><div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Status Pembayaran</span><span style="font-size:11px; font-weight:bold; color:${t.isPaid?'#16a34a':(t.payStatus==='DP'?'#d97706':'#ea8b00')}; background:${t.isPaid?'#dcfce7':(t.payStatus==='DP'?'#fef3c7':'#fff0d2')}; padding:4px 8px; border-radius:6px;">${t.isPaid?'Lunas':(t.payStatus==='DP'?'DP':'Belum Lunas')}</span></div><div style="display:flex; justify-content:space-between; margin-bottom:0px; align-items:center;"><span style="font-size:13px; color:var(--text); font-weight:bold;">Metode Pembayaran</span><span style="font-size:13px; font-weight:bold; color:var(--text);">${t.payMethod || '-'}</span></div></div>${btnPay}<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;"><button onclick="showToast('Nota siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Nota</button><button onclick="showToast('Label siap dicetak')" class="submit-button" style="background:white; color:var(--text); border:1px solid var(--border);">Cetak Label</button></div><button onclick="shareWhatsApp('${t.id}')" class="submit-button" style="background:#16a34a; margin-bottom:20px;"><i class="fab fa-whatsapp"></i> Kirim Nota Universal</button>`; 
-    $('trxDetailContent').innerHTML = html; showPage('trxDetailPage'); 
-}
-
-
-
 // TAMBAHKAN 3 FUNGSI BARU INI DI BAWAHNYA
 function editTrxServiceQty(trxId, idx) {
     const t = db.transactions.find(x => x.id === trxId);
