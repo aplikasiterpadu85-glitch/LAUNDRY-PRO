@@ -30,9 +30,69 @@ function saveUser(e) { e.preventDefault(); db.users.push({ id: Date.now().toStri
 function deleteUser(id) { if(db.users.length <= 1) return alert("Minimal harus ada 1 admin!"); if(confirm("Hapus karyawan ini?")) { db.users = db.users.filter(u => u.id !== id); saveToCloud(); renderUsers(); } }
 function renderUsers() { const c = $('usersListContainer'); if(!c) return; c.innerHTML = db.users.map(u => `<div style="background:white; padding:15px; border-radius:12px; border:1px solid var(--border); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;"><div><h3 style="font-size:15px;">${u.name}</h3><span style="font-size:11px; background:#e1edff; padding:2px 6px; border-radius:6px; color:#1769e0; font-weight:bold;">${u.role}</span><p style="font-size:12px; color:var(--muted); margin-top:5px;">PIN: ${u.pin}</p></div><button onclick="deleteUser('${u.id}')" style="background:#fee2e2; color:#dc2626; border:none; padding:8px; border-radius:8px; font-weight:bold;">Hapus</button></div>`).join(''); }
 // GANTI FUNGSI INI KESELURUHAN
+// GANTI FUNGSI renderCustomers DENGAN INI
 function renderCustomers() { 
     if(!$('customersListContainer')) return; 
     const custs = db.customers || []; 
+    
+    // Inject Tombol Tambah Pelanggan
+    let html = `
+        <div style="padding: 0 0 15px 0;">
+            <button onclick="tambahPelangganBaru()" style="width:100%; background:var(--primary); color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; font-size:14px; box-shadow: 0 4px 6px rgba(23,105,224,0.2);">
+                + Tambah Pelanggan Baru
+            </button>
+        </div>
+    `;
+
+    if (custs.length === 0) {
+        html += '<div class="empty-state">Belum ada pelanggan.</div>';
+    } else {
+        html += custs.map(c => `
+        <div style="background:white; padding:12px 15px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+            <!-- Area Kiri -->
+            <div onclick="openCustomerDetail('${c.name}')" style="cursor:pointer; display:flex; align-items:center; gap:12px; flex:1;">
+                <div style="width:40px; height:40px; border-radius:50%; background:#e1edff; color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px;">
+                    ${c.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                    <h3 style="font-size:15px; color:var(--text); margin-bottom:2px;">${c.name}</h3>
+                    <p style="font-size:12px; color:var(--muted); margin:0;">Total Transaksi: ${c.totalTrx || 0}</p>
+                </div>
+            </div>
+            <!-- Area Kanan -->
+            <div style="display:flex; gap:6px;">
+                <button onclick="editCustomer('${c.id}', '${c.name}')" style="background:#fef08a; color:#ca8a04; border:none; font-size:11px; font-weight:bold; padding:6px 10px; border-radius:6px; cursor:pointer;">Edit</button>
+                <button onclick="deleteCustomer('${c.id}', '${c.name}')" style="background:#fee2e2; color:#ef4444; border:none; font-size:11px; font-weight:bold; padding:6px 10px; border-radius:6px; cursor:pointer;">Hapus</button>
+            </div>
+        </div>`).join('');
+    }
+    
+    $('customersListContainer').innerHTML = html; 
+    if($('totalCustomers'))$('totalCustomers').textContent = custs.length; 
+}
+
+// TAMBAHKAN FUNGSI BARU INI DI BAWAHNYA
+function tambahPelangganBaru() {
+    const nama = prompt("Masukkan nama pelanggan baru:");
+    if(nama && nama.trim() !== "") {
+        const exist = db.customers.find(c => c.name.toLowerCase() === nama.trim().toLowerCase());
+        if(exist) {
+            alert("Nama pelanggan sudah ada di daftar!");
+            return;
+        }
+        // Tambahkan ke buku pelanggan
+        db.customers.unshift({ 
+            id: Date.now().toString(), 
+            name: nama.trim(), 
+            totalTrx: 0 
+        });
+        saveToCloud();
+        renderCustomers();
+        updateDashboardStats();
+        showToast("Pelanggan baru berhasil ditambahkan!");
+    }
+}
+
     
     $('customersListContainer').innerHTML = custs.map(c => `
         <div style="background:white; padding:12px 15px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; transition:0.2s;">
