@@ -549,7 +549,7 @@ function shareWhatsApp(id) {
 
 let editingTrxId = null; // Tambahkan penanda ini di luar fungsi
 
-// GANTI KESELURUHAN FUNGSI INI
+// GANTI KESELURUHAN FUNGSI openTrxDetail INI
 function openTrxDetail(id) { 
     currentViewTrxId = id; if($('trxMenuDropdown'))$('trxMenuDropdown').style.display = 'none'; 
     const t = db.transactions.find(x => x.id === id); if(!t) return; 
@@ -560,7 +560,8 @@ function openTrxDetail(id) {
     let maxDays = 1; 
     const srvs = t.services || [{name: t.service, qty: t.qty, unit: t.unit, price: t.price, total: t.total}];
     srvs.forEach(s => {
-        const dbSrv = (db.services || []).find(ds => ds.name === srv.name);
+        // PERBAIKAN DI SINI: menggunakan s.name
+        const dbSrv = (db.services || []).find(ds => ds.name === s.name);
         if(dbSrv && dbSrv.duration) {
             const days = parseInt(dbSrv.duration); 
             if(!isNaN(days) && days > maxDays) maxDays = days;
@@ -610,7 +611,6 @@ function openTrxDetail(id) {
         </div>
     `).join(''); 
     
-    // PEMBUNGKUS HTML - Tombol Cetak Nota sudah diatur posisinya dengan benar di sini
     const html = `
     <div style="background:white; border-radius:12px; border:1px solid var(--border); padding:15px; margin-bottom:15px;">
         <p style="font-size:12px; color:var(--muted); margin-bottom:4px;">No. Transaksi: <span style="color:var(--text); font-weight:bold;">${t.id}</span></p>
@@ -651,7 +651,6 @@ function openTrxDetail(id) {
     
     $('trxDetailContent').innerHTML = html; showPage('trxDetailPage'); 
 }
-
 
     
 // TAMBAHKAN 3 FUNGSI BARU INI DI BAWAHNYA
